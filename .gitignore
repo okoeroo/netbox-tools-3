@@ -1,0 +1,5 @@
+dnsmasq/__pycache__
+netboxers/__pycache__
+netboxers/models/__pycache__/
+tags
+netbox.config

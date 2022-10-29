@@ -1,0 +1,19 @@
+[generic]
+verbose = true
+netbox_base_url = http://host.lan:port
+authkey = verylongkeyfromnetbox 
+
+[dnsmasq]
+
+[dnsmasq_dhcp]
+output_file = /tmp/foo
+lease_file = /tmp/lease
+authoritive = true
+
+default_lease_time_range = 600
+default_lease_time_host = 60
+host_range_offset_min = 100
+host_range_offset_max = 150
+
+default_domain = koeroo.lan
+default_ntp_server = 192.168.1.2
