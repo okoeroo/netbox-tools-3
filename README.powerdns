@@ -47,13 +47,21 @@ dhcp-host=vrf_66_homelan_vlan_66,80:EE:73:FF:FF:FF,mainport_mainbridge,192.168.1
 
 ## Usage
 ```
-usage: ./netbox-2-dnsmasq-dhcp.py [-h] [-v] [-c CONFIGFILE] [-k AUTHKEY] [-do DNSMASQ_DHCP_OUTPUT_FILE] [-bu NETBOX_BASE_URL] [-ltr DHCP_DEFAULT_LEASE_TIME_RANGE] [-lth DHCP_DEFAULT_LEASE_TIME_HOST] [-min DHCP_HOST_RANGE_OFFSET_MIN] [-max DHCP_HOST_RANGE_OFFSET_MAX] [-dn DHCP_DEFAULT_NTP_SERVER] [-lf DHCP_LEASE_FILE] [-da] [-ddd DHCP_DEFAULT_DOMAIN]
+usage: netbox-2-dhcp-dns.py [-h] [-v] [-k AUTHKEY]
+                           [-do DNSMASQ_DHCP_OUTPUT_FILE]
+                           [-bu NETBOX_BASE_URL]
+                           [-ltr DHCP_DEFAULT_LEASE_TIME_RANGE]
+                           [-lth DHCP_DEFAULT_LEASE_TIME_HOST]
+                           [-min DHCP_HOST_RANGE_OFFSET_MIN]
+                           [-max DHCP_HOST_RANGE_OFFSET_MAX]
+                           [-lf DHCP_LEASE_FILE] [-da]
+                           [-ddd DHCP_DEFAULT_DOMAIN] [-z ZONEFILE]
+                           [-zia ZONEFILE_IN_ADDR] [-rl] [-e ZONEHEADER]
+                           [-f ZONEFOOTER]
 
-options:
+optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         Verbose mode. Default is off
-  -c CONFIGFILE, --config CONFIGFILE
-                        Configuration file.
   -k AUTHKEY, --authkey AUTHKEY
                         Netbox authentication key.
   -do DNSMASQ_DHCP_OUTPUT_FILE, --dnsmasq-dhcp-output-file DNSMASQ_DHCP_OUTPUT_FILE
@@ -68,51 +76,68 @@ options:
                         DHCP Host range offset minimum.
   -max DHCP_HOST_RANGE_OFFSET_MAX, --dhcp-host-range-offset-max DHCP_HOST_RANGE_OFFSET_MAX
                         DHCP Host range offset maximum.
-  -dn DHCP_DEFAULT_NTP_SERVER, --dhcp-default-ntp-server DHCP_DEFAULT_NTP_SERVER
-                        Default NTP server distribute via DHCP.
   -lf DHCP_LEASE_FILE, --dhcp-lease-file DHCP_LEASE_FILE
                         DHCP Lease file.
   -da, --dhcp-authoritive
                         Set DHCP Authoritive flag
   -ddd DHCP_DEFAULT_DOMAIN, --dhcp-default-domain DHCP_DEFAULT_DOMAIN
                         DHCP Default Domain.
-```
-
-## Example netbox.config file
-```
-[generic]
-verbose = true
-netbox_base_url = http://host.lan:port
-authkey = verylongkeyfromnetbox 
-
-[dnsmasq]
-
-[dnsmasq_dhcp]
-output_file = /tmp/dhcp_new.conf
-lease_file = /var/cache/dnsmasq/dnsmasq-dhcp.leasefile
-authoritive = true
-
-default_lease_time_range = 600m
-default_lease_time_host = 90m
-host_range_offset_min = 129
-host_range_offset_max = 190
-
-default_domain = koeroo.lan
-default_ntp_server = 192.168.1.2
+  -z ZONEFILE, --zonefile ZONEFILE
+                        Zonefile format to be consumed by Bind or PowerDNS.
+  -zia ZONEFILE_IN_ADDR, --zonefile-in-addr ZONEFILE_IN_ADDR
+                        Zonefile format to be consumed by Bind or PowerDNS,
+                        but specifically for the reverse lookups.
+  -rl, --relativize     Create relativized names in the zonefile
+  -e ZONEHEADER, --zoneheader ZONEHEADER
+                        Zonefile header template.
+  -f ZONEFOOTER, --zonefooter ZONEFOOTER
+                        Zonefile footer template.
 ```
 
 ## Example script to mash it all up
 ```
-echo "Running ./netbox-2-dnsmasq-dhcp.py"
-echo "Assuming all configuration info is in netbox.config and readable for the script."
+echo "Running netbox-2-dhcp-dns.py"
 
-~/netbox-tools-3/netbox-2-dnsmasq-dhcp.py
-# Netbox to DNSMasq DHCP config
+~/netbox-tools/netbox-2-dhcp-dns.py \
+    --authkey <heregoesyourkey> \
+    --base-url http://netbox.koeroo.local \
+    --dnsmasq-dhcp-output-file /tmp/generated-dhcp.conf \
+    --dhcp-default-lease-time-range 600m \
+    --dhcp-default-lease-time-host 90m \
+    --dhcp-host-range-offset-min 100 \
+    --dhcp-host-range-offset-max 199 \
+    --dhcp-lease-file /var/cache/dnsmasq/dnsmasq-dhcp.leasefile \
+    -da \
+    --dhcp-default-domain koeroo.local \
+    --zonefile /tmp/generated-zonefile \
+    --zoneheader /home/pi/config/dns/zonefiles/templates/koeroo.local.header \
+    --zonefooter /home/pi/config/dns/zonefiles/templates/koeroo.local.footer \
+    --zonefile-in-addr /tmp/generated-168.192.in-addr.arpa.local
+
+if [ $? -ne 0 ]; then
+    echo "Error!"
+    exit 1
+fi
 
 sudo cp \
-    /tmp/dhcp_new.conf \
+    /tmp/generated-dhcp.conf \
     /etc/dnsmasq.d/dhcp.conf
 
 echo "Reloading DNSMasq"
 sudo systemctl restart dnsmasq
+
+sudo cp \
+    /tmp/generated-zonefile \
+    /etc/powerdns/zonefiles/koeroo.local
+
+echo "Backup running zonefile"
+sudo cp -v /etc/powerdns/zonefiles/koeroo.local        /etc/powerdns/zonefiles/koeroo.local.backup
+sudo cp -v /tmp/generated-zonefile                     /etc/powerdns/zonefiles/koeroo.local
+     cp -v /tmp/generated-zonefile                     /home/pi/config/dns/powerdns/zonefiles/koeroo.local
+sudo cp -v /tmp/generated-168.192.in-addr.arpa.local   /etc/powerdns/zonefiles/168.192.in-addr.arpa.local
+
+### Assuming both koeroo.local and 168.192.in-addr.arpa.local are configured in
+### recursor.conf to be loaded for the zone koeroo.local. and 168.192.in-addr.arpa.
+echo sudo rec_control reload-zones
+sudo rec_control reload-zones
 ```
