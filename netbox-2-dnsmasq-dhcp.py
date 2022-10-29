@@ -2,7 +2,6 @@
 
 import sys
 import ipaddress
-import toml
 
 from dnsmasq import configuration
 from netboxers import netboxers_helpers
@@ -60,7 +59,7 @@ def netbox_to_dnsmasq_dhcp_config(ctx):
             dnsmasq_dhcp_section.set_role(prefix_obj['role']['name'])
         if prefix_obj['vlan'] is not None:
             dnsmasq_dhcp_section.set_vlan_id(prefix_obj['vlan']['vid'])
-            dnsmasq_dhcp_section.set_vlan_name(prefix_obj['vlan']['display_name'])
+            dnsmasq_dhcp_section.set_vlan_name(prefix_obj['vlan']['display'])
         if prefix_obj['vrf'] is not None:
             dnsmasq_dhcp_section.set_vrf_name(prefix_obj['vrf']['name'])
         if prefix_obj['prefix'] is not None:
@@ -96,11 +95,11 @@ def netbox_to_dnsmasq_dhcp_config(ctx):
                                 "6", default_dnsname_ip_addr))
 
             # Write default NTP server
-            if 'dhcp_default_ntp_server' in ctx and ctx['dhcp_default_ntp_server'] is not None:
+            if 'dnsmasq_dhcp_default_ntp_server' in ctx and ctx['dnsmasq_dhcp_default_ntp_server'] is not None:
                 dnsmasq_dhcp_section.append_dhcp_option(
                         DNSMasq_DHCP_Option(
                             netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                            "42", ctx['dhcp_default_ntp_server']))
+                            "42", ctx['dnsmasq_dhcp_default_ntp_server']))
 
         # Print dhcp-range
         ip_network = ipaddress.ip_network(prefix_obj['prefix'])
@@ -109,10 +108,10 @@ def netbox_to_dnsmasq_dhcp_config(ctx):
         dnsmasq_dhcp_section.append_dhcp_range(
                 DNSMasq_DHCP_Range(
                     netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                    ip_network.network_address + ctx['dhcp_host_range_offset_min'],
-                    ip_network.network_address + ctx['dhcp_host_range_offset_max'],
+                    ip_network.network_address + int(ctx['dnsmasq_dhcp_host_range_offset_min']),
+                    ip_network.network_address + int(ctx['dnsmasq_dhcp_host_range_offset_max']),
                     ip_network.netmask,
-                    ctx['dhcp_default_lease_time_range']))
+                    ctx['dnsmasq_dhcp_default_lease_time_range']))
 
 
         # Query all IP addresses in the VRF. From each, fetch the associated interface and its MAC
@@ -134,7 +133,7 @@ def netbox_to_dnsmasq_dhcp_config(ctx):
                     DNSMasq_DHCP_Host(
                         netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
                         tup['mac_address'], tup['host_iface'],
-                        tup['ip_addr'], ctx['dhcp_default_lease_time_host']))
+                        tup['ip_addr'], ctx['dnsmasq_dhcp_default_lease_time_host']))
 
         # Record section to config
         dnsmasq_dhcp_config.append_to_dhcp_config_sections(dnsmasq_dhcp_section)
@@ -147,274 +146,9 @@ def netbox_to_dnsmasq_dhcp_config(ctx):
     netboxers_helpers.write_to_ddo_fh(ctx, str(dnsmasq_dhcp_config))
 
 
-def powerdns_recursor_zonefile(ctx):
-    zo = DNS_Zonefile()
-
-    rr = DNS_Resource_Record(
-            rr_type = 'SOA',
-            rr_name = ctx['dhcp_default_domain'],
-            soa_mname = 'ns.' + ctx['dhcp_default_domain'],
-            soa_rname = 'hostmaster.' + ctx['dhcp_default_domain'],
-            soa_serial = 7,
-            soa_refresh = 86400,
-            soa_retry = 7200,
-            soa_expire = 3600000,
-            soa_minimum_ttl = 1800)
-    zo.add_rr(rr)
-
-
-    rr = DNS_Resource_Record(
-            rr_type = 'NS',
-            rr_name = '@',
-            rr_data = 'ns.' + ctx['dhcp_default_domain'])
-    zo.add_rr(rr)
-
-
-    # Query for prefixes and ranges
-    q = netboxers_helpers.query_netbox(ctx, "ipam/prefixes/")
-
-    for prefix_obj in q['results']:
-
-        # Skip non-IPv4
-        if prefix_obj['family']['value'] != 4:
-            continue
-
-        # TODO
-        # Only focus on Home
-        if prefix_obj['site']['slug'] != 'home':
-            continue
-
-        # Query all IP addresses in the VRF. From each, fetch the associated interface and its MAC
-        # Extract all IP addresses in the VRF
-        ip_addrs_in_vrf = netboxers_queries.get_dhcp_host_dict_from_vrf(ctx, prefix_obj['vrf']['id'])
-
-        # Run through the tupples
-        for tupple in ip_addrs_in_vrf:
-
-            # TODO
-            # When Device is set to Offline, skip it
-            if tupple['ip_addr_obj']['status']['value'] == 'offline':
-                print("Device {} with MAC {} and IP address {} is Offline, skipping".format(
-                                    tupple['host_iface'],
-                                    tupple['mac_address'],
-                                    tupple['ip_addr']))
-                continue
-
-            # Add the A record for each interface
-            rr = DNS_Resource_Record(
-                    rr_type = 'A',
-                    rr_name = tupple['interface_name'] + "." + tupple['hostname'],
-                    rr_data = tupple['ip_addr'])
-            zo.add_rr(rr)
-
-
-            # Check if a mac_address is available
-            if 'mac_address' not in tupple or \
-                    tupple['mac_address'] is None or \
-                    len(tupple['mac_address']) == 0:
-
-                print("No mac address available for",
-                        tupple['hostname'],
-                        "interface",
-                        tupple['interface_name'],
-                        "with",
-                        tupple['ip_addr'],
-                        file=sys.stderr)
-                continue
-
-            devices = netboxers_queries.fetch_devices_from_mac_address(ctx, tupple['mac_address'])
-            if devices is None:
-                print("No device found based on MAC address:", tupple['mac_address'], 
-                        file=sys.stderr)
-                continue
-
-            # Assume only first record to be relevant, as the MAC address is unique.
-            device = devices['results'][0]
-
-            # Extract primary IP of device or virtual machine
-            if 'primary_ip' in device and 'address' in device['primary_ip']:
-                plain_ip_address = device['primary_ip']['address'].split('/')[0]
-
-                # Check: is it equal to the current record?
-                if tupple['ip_addr'] == plain_ip_address:
-
-                    # Add CNAME towards primary ip_address holding interface
-                    rr = DNS_Resource_Record(
-                            rr_type = 'CNAME',
-                            rr_name = tupple['hostname'],
-                            rr_data = tupple['interface_name'] + "." + tupple['hostname'] + \
-                                          "." + \
-                                          ctx['dhcp_default_domain'])
-                    zo.add_rr(rr)
-
-
-    # Inject footer file
-    if 'zonefooter' in ctx and len(ctx['zonefooter']) > 0:
-        f = open(ctx['zonefooter'], 'r')
-        foot = f.read()
-        f.close()
-
-    # Write zonefile
-    f = open(ctx['zonefile'], 'w')
-
-    # Write the zonefile data to file
-    f.write(str(zo))
-    f.write("\n")
-
-    # Add footer to zonefile
-    if foot is not None:
-        f.write(foot)
-
-    f.close()
-
-
-### WORK IN PROGRESS 192.168.x.x only
-def powerdns_recursor_zoneing_reverse_lookups(ctx):
-    zo = DNS_Zonefile()
-
-    print(ctx['zonefile_in_addr'])
-    ### ctx['zonefile_in_addr']
-
-    #ipam/ip-addresses/
-    zone_name = "168.192.in-addr.arpa"
-
-    rr = DNS_Resource_Record(
-            rr_type = 'SOA',
-            rr_name = zone_name,
-            soa_mname = 'ns.' + ctx['dhcp_default_domain'],
-            soa_rname = 'hostmaster.' + ctx['dhcp_default_domain'],
-            soa_serial = 7,
-            soa_refresh = 86400,
-            soa_retry = 7200,
-            soa_expire = 3600000,
-            soa_minimum_ttl = 1800)
-    zo.add_rr(rr)
-
-
-    rr = DNS_Resource_Record(
-            rr_type = 'NS',
-            rr_name = '@',
-            rr_data = 'ns.' + ctx['dhcp_default_domain'])
-    zo.add_rr(rr)
-
-
-    # Query for prefixes and ranges
-    q = netboxers_helpers.query_netbox(ctx, "ipam/ip-addresses/")
-
-    for ip_addr_obj in q['results']:
-        tupple = {}
-
-        # Skip non-IPv4
-        if ip_addr_obj['family']['value'] != 4:
-            continue
-
-        ## HACK
-        if not ip_addr_obj['address'].startswith('192.168'):
-            print(ip_addr_obj['address'], "not in 192.168")
-            continue
-
-        # No interface? Skip
-        if 'assigned_object' not in ip_addr_obj:
-            print("No interface assigned to", ip_addr_obj['address'])
-            continue
-
-
-        # Assemble the tupple
-        tupple['ip_addr'] = ip_addr_obj['address']
-
-        if 'device' in ip_addr_obj['assigned_object']:
-            tupple['host_name'] = ip_addr_obj['assigned_object']['device']['name']
-        elif 'virtual_machine' in ip_addr_obj['assigned_object']:
-            tupple['host_name'] = ip_addr_obj['assigned_object']['virtual_machine']['name']
-
-        tupple['interface_name'] = ip_addr_obj['assigned_object']['name']
-
-        ip_addr_interface = ipaddress.IPv4Interface(tupple['ip_addr'])
-        tupple['rev_ip_addr'] = ipaddress.ip_address(ip_addr_interface.ip).reverse_pointer
-
-
-        # RFC compliant domain name
-#        rfc_host_name = tupple['host_name'] + "_" + \
-#                            tupple['interface_name'] + "." + \
-#                            ctx['dhcp_default_domain'])
-        rfc_host_name = tupple['interface_name'] + "." + \
-                            tupple['host_name'] + "." + \
-                            ctx['dhcp_default_domain']
-
-        rr = DNS_Resource_Record(
-                rr_type = 'PTR',
-                rr_name = tupple['rev_ip_addr'],
-                rr_data = rfc_host_name)
-        zo.add_rr(rr)
-
-
-    # Not assigned must get a special PTR record
-    net_vlan66 = ipaddress.ip_network('192.168.1.0/24')
-    for ip_addr_obj in q['results']:
-        tupple = {}
-
-        # Skip non-IPv4
-        if ip_addr_obj['family']['value'] != 4:
-            continue
-
-        ## HACK
-        if not ip_addr_obj['address'].startswith('192.168'):
-            print(ip_addr_obj['address'], "not in 192.168")
-            continue
-
-        # No interface? Skip
-        if 'assigned_object' in ip_addr_obj:
-            print("Interface assigned to", ip_addr_obj['address'])
-            if ip_addr_obj['address'] in net_vlan66.hosts():
-                print("Interface assigned to", ip_addr_obj['address'], "is part of 192.168.1.0/24")
-
-            continue
-
-#    net4 = ipaddress.ip_network('192.168.1.0/24')
-#    for ip_addr_in_net in net4.hosts():
-#
-#        tupple = {}
-#
-#        # No interface? Skip
-#        if 'assigned_object' not in ip_addr_obj:
-#            print("No interface assigned to", ip_addr_obj['address'])
-#            continue
-#
-#        res = next((i for i, item in enumerate(q['results']) if item["address"] == ip_addr_in_net), None)
-#
-#        if res is None:
-#            ip_addr_interface = ipaddress.IPv4Interface(ip_addr_in_net)
-#            rev_ip_addr = ipaddress.ip_address(ip_addr_interface.ip).reverse_pointer
-#            print(rev_ip_addr)
-
-
-#        # Assemble the tupple
-#        rfc_host_name = tupple['interface_name'] + "." + \
-#                            tupple['host_name'] + "." + \
-#                            ctx['dhcp_default_domain']
-#
-#        ip_addr_interface = ipaddress.IPv4Interface(tupple['ip_addr'])
-#        tupple['rev_ip_addr'] = ipaddress.ip_address(ip_addr_interface.ip).reverse_pointer
-#
-#        rr = DNS_Resource_Record(
-#                rr_type = 'PTR',
-#                rr_name = tupple['rev_ip_addr'],
-#                rr_data = rfc_host_name)
-#        zo.add_rr(rr)
-
-
-    # Write zonefile
-    f = open(ctx['zonefile_in_addr'], 'w')
-
-    # Write the zonefile data to file
-    f.write(str(zo))
-    f.write("\n")
-
-    f.close()
-
 
 ### Main
-def main(ctx):
+def main(ctx: {}):
     if 'dnsmasq_dhcp_output_file' in ctx and ctx['dnsmasq_dhcp_output_file'] is not None:
         print("Netbox to DNSMasq DHCP config")
         netbox_to_dnsmasq_dhcp_config(ctx)

@@ -44,7 +44,7 @@ def strip_query(ctx, query):
     # Pattern is base_url/api/query, all double bits should be stripped 
 
     if query.startswith(ctx['generic_netbox_base_url'] + '/api/'):
-        return query[len(ctx['generic_etbox_base_url'] + '/api/'):]
+        return query[len(ctx['generic_netbox_base_url'] + '/api/'):]
 
     return query
 

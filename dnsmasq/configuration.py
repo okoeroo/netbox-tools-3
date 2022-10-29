@@ -153,7 +153,7 @@ def parse_config(ctx):
 
     if not os.path.isfile(ctx['args_configfile']):
         raise FileNotFoundError(
-            errno.ENOENT, os.strerror(errno.ENOENT), ctx['args_onfigfile'])
+            errno.ENOENT, os.strerror(errno.ENOENT), ctx['args_configfile'])
 
     config.read(ctx['args_configfile'])
 
