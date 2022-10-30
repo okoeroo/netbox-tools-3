@@ -1,5 +1,7 @@
 dnsmasq/__pycache__
+powerdnsrec/__pycache__
 netboxers/__pycache__
 netboxers/models/__pycache__/
 tags
 netbox.config
+zonefile.footer

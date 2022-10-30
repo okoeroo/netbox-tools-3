@@ -1,0 +1,10 @@
+; Footer
+
+router              CNAME   eth0.box.koeroo.lan.
+deadpool            CNAME   lan1.deadpool.koeroo.lan.
+;                   CNAME   lan2.deadpool.koeroo.lan.
+samba               CNAME   deadpool.koeroo.lan.
+
+tlsa                CNAME   apps.koeroo.lan.
+
+guesthost           A       192.168.200.2

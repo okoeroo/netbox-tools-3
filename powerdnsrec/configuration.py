@@ -20,10 +20,10 @@ def sanity_checks(ctx):
         return False
 
     if 'powerdns_rec_zonefile_in_addr' not in ctx or ctx['powerdns_rec_zonefile_in_addr'] is None:
-        print("No PowerDNS Recursor output file configured. Use command line CLI flags or \"powerdns_rec_zonefile_in_addr\" in the configuration file\"")
+        print("No PowerDNS Recursor output file configured. Use command line CLI flags or \"zonefile_in_addr\" in the configuration file\"")
         return False
 
-
+        
     #auto-correct base URL
     if ctx['generic_netbox_base_url'].endswith('/'):
         ctx['generic_netbox_base_url'] = ctx['generic_netbox_base_url'][:-1]
@@ -63,6 +63,12 @@ def argparsing(ctx):
     parser.add_argument("-bu", "--base-url",
                         dest='netbox_base_url',
                         help="Netbox base URL.",
+                        default=None,
+                        type=str)
+
+    parser.add_argument("-d", "--domain",
+                        dest='powerdns_rec_domain',
+                        help="Domain to be used in the configuration for forward and reverse lookup configurations.",
                         default=None,
                         type=str)
     parser.add_argument("-z", "--zonefile",

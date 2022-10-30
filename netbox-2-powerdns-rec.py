@@ -14,9 +14,9 @@ def powerdns_recursor_zonefile(ctx):
 
     rr = DNS_Resource_Record(
             rr_type = 'SOA',
-            rr_name = ctx['dhcp_default_domain'],
-            soa_mname = 'ns.' + ctx['dhcp_default_domain'],
-            soa_rname = 'hostmaster.' + ctx['dhcp_default_domain'],
+            rr_name = ctx['powerdns_rec_domain'],
+            soa_mname = 'ns.' + ctx['powerdns_rec_domain'],
+            soa_rname = 'hostmaster.' + ctx['powerdns_rec_domain'],
             soa_serial = 7,
             soa_refresh = 86400,
             soa_retry = 7200,
@@ -28,7 +28,7 @@ def powerdns_recursor_zonefile(ctx):
     rr = DNS_Resource_Record(
             rr_type = 'NS',
             rr_name = '@',
-            rr_data = 'ns.' + ctx['dhcp_default_domain'])
+            rr_data = 'ns.' + ctx['powerdns_rec_domain'])
     zo.add_rr(rr)
 
 
@@ -106,18 +106,19 @@ def powerdns_recursor_zonefile(ctx):
                             rr_name = tupple['hostname'],
                             rr_data = tupple['interface_name'] + "." + tupple['hostname'] + \
                                           "." + \
-                                          ctx['dhcp_default_domain'])
+                                          ctx['powerdns_rec_domain'])
                     zo.add_rr(rr)
 
 
     # Inject footer file
+    foot = None
     if 'zonefooter' in ctx and len(ctx['zonefooter']) > 0:
         f = open(ctx['zonefooter'], 'r')
         foot = f.read()
         f.close()
 
     # Write zonefile
-    f = open(ctx['zonefile'], 'w')
+    f = open(ctx['powerdns_rec_zonefile'], 'w')
 
     # Write the zonefile data to file
     f.write(str(zo))
@@ -143,8 +144,8 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
     rr = DNS_Resource_Record(
             rr_type = 'SOA',
             rr_name = zone_name,
-            soa_mname = 'ns.' + ctx['dhcp_default_domain'],
-            soa_rname = 'hostmaster.' + ctx['dhcp_default_domain'],
+            soa_mname = 'ns.' + ctx['powerdns_rec_domain'],
+            soa_rname = 'hostmaster.' + ctx['powerdns_rec_domain'],
             soa_serial = 7,
             soa_refresh = 86400,
             soa_retry = 7200,
@@ -156,7 +157,7 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
     rr = DNS_Resource_Record(
             rr_type = 'NS',
             rr_name = '@',
-            rr_data = 'ns.' + ctx['dhcp_default_domain'])
+            rr_data = 'ns.' + ctx['powerdns_rec_domain'])
     zo.add_rr(rr)
 
 
@@ -277,11 +278,11 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 
 ### Main
 def main(ctx):
-    if 'zonefile' in ctx and ctx['zonefile'] is not None:
+    if 'powerdns_rec_zonefile' in ctx and ctx['powerdns_rec_zonefile'] is not None:
         print("Netbox to DNS Zonefile")
         powerdns_recursor_zonefile(ctx)
 
-    if 'zonefile_in_addr' in ctx and ctx['zonefile_in_addr'] is not None:
+    if 'zonefile_in_addr' in ctx and ctx['powerdns_rec_zonefile_in_addr'] is not None:
         print("Netbox to DNS Zonefile for reverse lookups")
         powerdns_recursor_zoneing_reverse_lookups(ctx)
 
