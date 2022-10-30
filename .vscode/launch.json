@@ -8,9 +8,9 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            "program": "netbox-2-dnsmasq-dhcp.py",
+            "program": "${file}",
             "console": "integratedTerminal",
-            "cwd": "/Users/okoeroo/dvl/netbox-tools-3",
+            "cwd": "${file}",
             "justMyCode": true
         }
     ]
