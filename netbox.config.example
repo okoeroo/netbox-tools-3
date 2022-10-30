@@ -20,3 +20,4 @@ default_ntp_server = 192.168.1.2
 zonefile = /tmp/zonefile
 zonefile_in_addr = /tmp/zonefile_in_addr
 domain = koeroo.lan
+zonefile_footer = zonefile.footer.example

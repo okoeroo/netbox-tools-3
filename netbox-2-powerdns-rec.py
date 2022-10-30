@@ -112,8 +112,8 @@ def powerdns_recursor_zonefile(ctx):
 
     # Inject footer file
     foot = None
-    if 'zonefooter' in ctx and len(ctx['zonefooter']) > 0:
-        f = open(ctx['zonefooter'], 'r')
+    if 'powerdns_rec_zonefile_footer' in ctx and len(ctx['powerdns_rec_zonefile_footer']) > 0:
+        f = open(ctx['powerdns_rec_zonefile_footer'], 'r')
         foot = f.read()
         f.close()
 
