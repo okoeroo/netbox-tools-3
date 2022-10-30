@@ -230,40 +230,7 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
             print("Interface assigned to", ip_addr_obj['address'])
             if ip_addr_obj['address'] in net_vlan66.hosts():
                 print("Interface assigned to", ip_addr_obj['address'], "is part of 192.168.1.0/24")
-
             continue
-
-#    net4 = ipaddress.ip_network('192.168.1.0/24')
-#    for ip_addr_in_net in net4.hosts():
-#
-#        tupple = {}
-#
-#        # No interface? Skip
-#        if 'assigned_object' not in ip_addr_obj:
-#            print("No interface assigned to", ip_addr_obj['address'])
-#            continue
-#
-#        res = next((i for i, item in enumerate(q['results']) if item["address"] == ip_addr_in_net), None)
-#
-#        if res is None:
-#            ip_addr_interface = ipaddress.IPv4Interface(ip_addr_in_net)
-#            rev_ip_addr = ipaddress.ip_address(ip_addr_interface.ip).reverse_pointer
-#            print(rev_ip_addr)
-
-
-#        # Assemble the tupple
-#        rfc_host_name = tupple['interface_name'] + "." + \
-#                            tupple['host_name'] + "." + \
-#                            ctx['dhcp_default_domain']
-#
-#        ip_addr_interface = ipaddress.IPv4Interface(tupple['ip_addr'])
-#        tupple['rev_ip_addr'] = ipaddress.ip_address(ip_addr_interface.ip).reverse_pointer
-#
-#        rr = DNS_Resource_Record(
-#                rr_type = 'PTR',
-#                rr_name = tupple['rev_ip_addr'],
-#                rr_data = rfc_host_name)
-#        zo.add_rr(rr)
 
 
     # Write zonefile
