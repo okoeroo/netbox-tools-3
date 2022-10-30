@@ -87,11 +87,13 @@ def argparsing(ctx):
                         action="store_true",
                         default=True)
 
-    parser.add_argument("-f", "--zonefooter",
-                        dest='powerdns_rec_zonefooter',
+    parser.add_argument("-f", "--zone-footer",
+                        dest='powerdns_rec_zonefile_footer',
                         help="Zonefile footer template.",
                         default=None,
                         type=str)
+
+
 
     args = parser.parse_args()
 
@@ -103,7 +105,7 @@ def argparsing(ctx):
     ctx['args_zonefile']                  = args.powerdns_rec_zonefile
     ctx['args_zonefile_in_addr']          = args.powerdns_rec_zonefile_in_addr
     ctx['args_zonefile_relativize']       = args.powerdns_rec_zonefile_relativize
-    ctx['args_zonefooter']                = args.powerdns_rec_zonefooter
+    ctx['args_zonefile_footer']           = args.powerdns_rec_zonefile_footer
 
     return ctx
 
