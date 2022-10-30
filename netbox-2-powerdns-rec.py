@@ -135,8 +135,8 @@ def powerdns_recursor_zonefile(ctx):
 def powerdns_recursor_zoneing_reverse_lookups(ctx):
     zo = DNS_Zonefile()
 
-    print(ctx['zonefile_in_addr'])
-    ### ctx['zonefile_in_addr']
+    print(ctx['powerdns_rec_zonefile_in_addr'])
+    ### ctx['powerdns_rec_zonefile_in_addr']
 
     #ipam/ip-addresses/
     zone_name = "168.192.in-addr.arpa"
@@ -202,7 +202,7 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 #                            ctx['dhcp_default_domain'])
         rfc_host_name = tupple['interface_name'] + "." + \
                             tupple['host_name'] + "." + \
-                            ctx['dhcp_default_domain']
+                            ctx['powerdns_rec_domain']
 
         rr = DNS_Resource_Record(
                 rr_type = 'PTR',
@@ -267,7 +267,7 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 
 
     # Write zonefile
-    f = open(ctx['zonefile_in_addr'], 'w')
+    f = open(ctx['powerdns_rec_zonefile_in_addr'], 'w')
 
     # Write the zonefile data to file
     f.write(str(zo))
@@ -282,7 +282,7 @@ def main(ctx):
         print("Netbox to DNS Zonefile")
         powerdns_recursor_zonefile(ctx)
 
-    if 'zonefile_in_addr' in ctx and ctx['powerdns_rec_zonefile_in_addr'] is not None:
+    if 'powerdns_rec_zonefile_in_addr' in ctx and ctx['powerdns_rec_zonefile_in_addr'] is not None:
         print("Netbox to DNS Zonefile for reverse lookups")
         powerdns_recursor_zoneing_reverse_lookups(ctx)
 
