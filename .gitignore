@@ -5,3 +5,4 @@ netboxers/models/__pycache__/
 tags
 netbox.config
 zonefile.footer
+output-files
