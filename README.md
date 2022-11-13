@@ -8,7 +8,7 @@ Some tools require special tags to be added into your Netbox and assigned to obj
 "NetBox is the leading solution for modeling and documenting modern networks. By combining the traditional disciplines of IP address management (IPAM) and datacenter infrastructure management (DCIM) with powerful APIs and extensions, NetBox provides the ideal "source of truth" to power network automation.", [https://github.com/netbox-community/netbox](https://github.com/netbox-community/netbox)
 
 ## Compatibility with
-The tools available here are tested with Netbox v3.3.6.
+The tools available here are tested with Netbox v3.3.x.
 
 # Netbox to DNSMASQ DHCP Configuration
 Using "netbox-2-dnsmasq-dhcp.py" will generate a DNSMasq compatible DHCP configuration file for its configuration service.
