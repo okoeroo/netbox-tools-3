@@ -93,7 +93,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx, prefix_obj, dnsma
 
     for tup in dhcp_host_tuples:
         # TODO
-        print(tup['ip_addr_obj']['status'])
+#        print(tup['ip_addr_obj']['status'])
 
         # When Device is set to Offline, skip it
         if tup['ip_addr_obj']['status']['value'] == 'offline':
