@@ -1,48 +1,53 @@
-# netbox-2-dnsmasq-dhcp.py
+# netbox-2-powerdns-rec.py
+Using "./netbox-2-powerdns-rec.py" will generate zonefile compatible with PowerDNS Recursor and Bind. The zonefile can be extended with a footer file.
 
-Using Netbox as source and creating DNSMasq DHCP configuration file.
+It can also generate a reverse lookup file zonefile.
 
+## PowerDNS Recursor configuration
+The script will fetch all devices and its interfaces. It will concatenate each of the interfaces and generated forward and reverse zonefile files. The primary IP address will get a CNAME-ed shortened hostname to the interface name and device concatenated name.
 
-## DNSMasq DHCP configuration
-The script will fetch all configured prefixes from Netbox. Copy `netbox.config.example` to `netbox.config` and fill the URL and auth key and check the results in the default output file location.
-
-
-### General DHCP settings
-The dhcp lease file will be set on top of the output file. Optionally the dhcp-authoritative directive is set. The dhcp default domain can be set.
+Copy `netbox.config.example` to `netbox.config`, adjust the example data and fill the URL and auth key and check the results in the default output file location.
 
 
-### Per prefix settings
-From the prefixes, the associated VRF is retrieved and at which Site it is operating. Also the VLAN on which it is used is retrieved.
-
-The name of the VRF and the name of the vlan will be concattenated and result into the name of the DHCP scope. The default gateway and DNS server is configured. The prefix will be configured with a DHCP range based on the `--dhcp-host-range-offset-min` and `--dhcp-host-range-offset-max` parameters, with a default lease time from the `--dhcp-default-lease-time-range` parameters.
-
-#### Default gateway selection
-Based on the VRF assessed, the first IP address with the tag `net_default_gateway` will be selected as the default gateway.
-
-#### DNS server selection
-The IP address of the default gateway will retrieved. The DNS server field associated to the IP address is retrieved and used as the DNS server.
-
-
-### DHCP example output
-
+### Zonefile output
 ```
-dhcp-leasefile=/var/cache/dnsmasq/dnsmasq-dhcp.leasefile
-dhcp-authoritative
-domain=koeroo.local
-
-### Site:    Home
-### Role:    Untagged
-### Vlan:    Home VLAN (66) with ID: 66
-### VRF:     vrf_66_homelan
-### Prefix:  192.168.1.0/24
-
-dhcp-option=vrf_66_homelan_vlan_66,3,192.168.1.254  # Default Gateway
-dhcp-option=vrf_66_homelan_vlan_66,6,192.168.1.1  # Default DNS
-dhcp-range=vrf_66_homelan_vlan_66,192.168.1.100,192.168.1.199,255.255.255.0,600m
-
-dhcp-host=vrf_66_homelan_vlan_66,B8:27:EB:FF:FF:FF,kpnpibox_eth0,192.168.1.1,90m
-dhcp-host=vrf_66_homelan_vlan_66,52:54:00:FF:FF:FF,unifi_eth0,192.168.1.3,90m
-dhcp-host=vrf_66_homelan_vlan_66,80:EE:73:FF:FF:FF,mainport_mainbridge,192.168.1.4,90m
+koeroo.lan. 86400 IN SOA ns.koeroo.lan. hostmaster.koeroo.lan. 7 86400 7200 3600000 1800
+@ 86400 IN NS ns.koeroo.lan.
+br_lan1.draytek 86400 IN A 192.168.10.1
+br_net200.draytek 86400 IN A 192.168.200.1
+br_net201.draytek 86400 IN A 192.168.201.1
+br_net202.draytek 86400 IN A 192.168.202.1
+eth0.vpn 86400 IN A 192.168.202.10
+vpn 86400 IN CNAME eth0.vpn.koeroo.lan.
+br_net203.draytek 86400 IN A 192.168.203.1
+eth0.netbox 86400 IN A 192.168.203.11
+netbox 86400 IN CNAME eth0.netbox.koeroo.lan.
+eth0.syslog 86400 IN A 192.168.203.15
+syslog 86400 IN CNAME eth0.syslog.koeroo.lan.
+eth0.revproxy 86400 IN A 192.168.203.42
+revproxy 86400 IN CNAME eth0.revproxy.koeroo.lan.
+eth0.somecloud 86400 IN A 192.168.203.45
+somecloud 86400 IN CNAME eth0.somecloud.koeroo.lan.
+eth0.respect 86400 IN A 192.168.203.46
+respect 86400 IN CNAME eth0.respect.koeroo.lan.
+eth0.kat 86400 IN A 192.168.203.53
+kat 86400 IN CNAME eth0.kat.koeroo.lan.
+eth0.seaport 86400 IN A 192.168.203.54
+seaport 86400 IN CNAME eth0.seaport.koeroo.lan.
+eth0.plex 86400 IN A 192.168.203.70
+plex 86400 IN CNAME eth0.plex.koeroo.lan.
+eth0.mailcow 86400 IN A 192.168.203.80
+mailcow 86400 IN CNAME eth0.mailcow.koeroo.lan.
+eth0.homeassistant 86400 IN A 192.168.203.101
+homeassistant 86400 IN CNAME eth0.homeassistant.koeroo.lan.
+br_net204.draytek 86400 IN A 192.168.204.1
+wlan0.esp_2b55e9 86400 IN A 192.168.204.50
+esp_2b55e9 86400 IN CNAME wlan0.esp_2b55e9.koeroo.lan.
+wlan0.esp_eacb50 86400 IN A 192.168.204.51
+esp_eacb50 86400 IN CNAME wlan0.esp_eacb50.koeroo.lan.
+wlan0.esp_eacffb 86400 IN A 192.168.204.52
+esp_eacffb 86400 IN CNAME wlan0.esp_eacffb.koeroo.lan.
+wlan0.esp_ea85cd 86400 IN A 192.168.204.53
 ```
 
 ## Usage
