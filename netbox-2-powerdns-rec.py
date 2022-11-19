@@ -53,13 +53,9 @@ def powerdns_recursor_zonefile(ctx):
         # Run through the tupples
         for tupple in ip_addrs_in_vrf:
 
-            # TODO
             # When Device is set to Offline, skip it
-            if tupple['ip_addr_obj']['status']['value'] == 'offline':
-                print("Device {} with MAC {} and IP address {} is Offline, skipping".format(
-                                    tupple['host_iface'],
-                                    tupple['mac_address'],
-                                    tupple['ip_addr']))
+            if tupple['status'] != 'active':
+                print(f"Device or virtual machine associated to the interface \"{tupple['host_iface']}\" with MAC {tupple['mac_address']} and IP address {tupple['ip_addr']} is Offline, skipping.")
                 continue
 
             # Add the A record for each interface
@@ -167,6 +163,12 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
     for ip_addr_obj in q['results']:
         tupple = {}
 
+        # If the associated device or virtual machine is not active, skip
+        status = netboxers_queries.get_status_of_devvm_from_ipaddresses_obj(ctx, ip_addr_obj)
+        if status != 'active':
+            print(f"skipping {ip_addr_obj['address']} because the device associated to the IP address is not active.")
+            continue
+
         # Skip non-IPv4
         if ip_addr_obj['family']['value'] != 4:
             continue
@@ -227,7 +229,7 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 
         # No interface? Skip
         if 'assigned_object' in ip_addr_obj:
-            print("Interface assigned to", ip_addr_obj['address'])
+            # print("Interface assigned to", ip_addr_obj['address'])
             if ip_addr_obj['address'] in net_vlan66.hosts():
                 print("Interface assigned to", ip_addr_obj['address'], "is part of 192.168.1.0/24")
             continue
