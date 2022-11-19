@@ -92,15 +92,9 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx, prefix_obj, dnsma
     dhcp_host_tuples = netboxers_queries.get_dhcp_host_dict_from_vrf(ctx, prefix_obj['vrf']['id'])
 
     for tup in dhcp_host_tuples:
-        # TODO
-#        print(tup['ip_addr_obj']['status'])
-
         # When Device is set to Offline, skip it
-        if tup['ip_addr_obj']['status']['value'] == 'offline':
-            print("Device {} with MAC {} and IP address {} is Offline, skipping".format(
-                                tup['host_iface'],
-                                tup['mac_address'],
-                                tup['ip_addr']))
+        if tup['status'] != 'active':
+            print(f"Device or virtual machine associated to the interface \"{tup['host_iface']}\" with MAC {tup['mac_address']} and IP address {tup['ip_addr']} is Offline, skipping.")
             continue
 
         # Record the DHCP host

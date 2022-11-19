@@ -49,6 +49,19 @@ def get_macaddress_from_ipaddresses_obj(ctx, ip_addr_obj):
     return interface_obj['mac_address']
 
 
+def get_status_of_devvm_from_ipaddresses_obj(ctx, ip_addr_obj):
+    obj = netboxers_helpers.query_netbox(ctx, ip_addr_obj['assigned_object']['url'])
+
+    if 'device' in obj:
+        dev = netboxers_helpers.query_netbox(ctx, obj['device']['url'])
+        return dev['status']['value']
+    elif 'virtual_machine' in obj:
+        vm = netboxers_helpers.query_netbox(ctx, obj['virtual_machine']['url'])
+        return vm['status']['value']
+    else:
+        raise "Assigned object is not a device nor a virtual_machine."
+
+
 def get_hostname_from_ipaddresses_obj(ip_addr_obj):
     if 'assigned_object' not in ip_addr_obj:
         return "no_assigned_object"
@@ -120,6 +133,9 @@ def assemble_dhcp_host_dict_from_ip_addr_obj(ctx, ip_addr_obj):
     res_tup['ip_addr'] = get_ipaddress_from_ipaddresses_obj(ip_addr_obj)
     res_tup['ip_net'] = get_network_address_from_ipaddresses_obj(ip_addr_obj)
     res_tup['mac_address'] = get_macaddress_from_ipaddresses_obj(ctx, ip_addr_obj)
+
+    # TODO
+    res_tup['status'] = get_status_of_devvm_from_ipaddresses_obj(ctx, ip_addr_obj)
 
     res_tup['hostname'] = get_hostname_from_ipaddresses_obj(ip_addr_obj)
     res_tup['normalized_hostname'] = netboxers_helpers.normalize_name(res_tup['hostname'])
