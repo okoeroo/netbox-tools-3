@@ -26,123 +26,66 @@ eth0.syslog 86400 IN A 192.168.203.15
 syslog 86400 IN CNAME eth0.syslog.koeroo.lan.
 eth0.revproxy 86400 IN A 192.168.203.42
 revproxy 86400 IN CNAME eth0.revproxy.koeroo.lan.
-eth0.somecloud 86400 IN A 192.168.203.45
-somecloud 86400 IN CNAME eth0.somecloud.koeroo.lan.
-eth0.respect 86400 IN A 192.168.203.46
-respect 86400 IN CNAME eth0.respect.koeroo.lan.
-eth0.kat 86400 IN A 192.168.203.53
-kat 86400 IN CNAME eth0.kat.koeroo.lan.
-eth0.seaport 86400 IN A 192.168.203.54
-seaport 86400 IN CNAME eth0.seaport.koeroo.lan.
-eth0.plex 86400 IN A 192.168.203.70
-plex 86400 IN CNAME eth0.plex.koeroo.lan.
-eth0.mailcow 86400 IN A 192.168.203.80
-mailcow 86400 IN CNAME eth0.mailcow.koeroo.lan.
-eth0.homeassistant 86400 IN A 192.168.203.101
-homeassistant 86400 IN CNAME eth0.homeassistant.koeroo.lan.
-br_net204.draytek 86400 IN A 192.168.204.1
-wlan0.esp_2b55e9 86400 IN A 192.168.204.50
-esp_2b55e9 86400 IN CNAME wlan0.esp_2b55e9.koeroo.lan.
-wlan0.esp_eacb50 86400 IN A 192.168.204.51
-esp_eacb50 86400 IN CNAME wlan0.esp_eacb50.koeroo.lan.
-wlan0.esp_eacffb 86400 IN A 192.168.204.52
-esp_eacffb 86400 IN CNAME wlan0.esp_eacffb.koeroo.lan.
-wlan0.esp_ea85cd 86400 IN A 192.168.204.53
 ```
 
 ## Usage
 ```
-usage: netbox-2-dhcp-dns.py [-h] [-v] [-k AUTHKEY]
-                           [-do DNSMASQ_DHCP_OUTPUT_FILE]
-                           [-bu NETBOX_BASE_URL]
-                           [-ltr DHCP_DEFAULT_LEASE_TIME_RANGE]
-                           [-lth DHCP_DEFAULT_LEASE_TIME_HOST]
-                           [-min DHCP_HOST_RANGE_OFFSET_MIN]
-                           [-max DHCP_HOST_RANGE_OFFSET_MAX]
-                           [-lf DHCP_LEASE_FILE] [-da]
-                           [-ddd DHCP_DEFAULT_DOMAIN] [-z ZONEFILE]
-                           [-zia ZONEFILE_IN_ADDR] [-rl] [-e ZONEHEADER]
-                           [-f ZONEFOOTER]
+usage: configuration.py [-h] [-v] 
+                        [-c CONFIGFILE] 
+                        [-k AUTHKEY] 
+                        [-bu NETBOX_BASE_URL] 
+                        [-d POWERDNS_REC_DOMAIN] 
+                        [-z POWERDNS_REC_ZONEFILE] 
+                        [-zia POWERDNS_REC_ZONEFILE_IN_ADDR] 
+                        [-rl]
+                        [-f POWERDNS_REC_ZONEFILE_FOOTER]
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -v, --verbose         Verbose mode. Default is off
+  -c CONFIGFILE, --config CONFIGFILE
+                        Configuration file.
   -k AUTHKEY, --authkey AUTHKEY
                         Netbox authentication key.
-  -do DNSMASQ_DHCP_OUTPUT_FILE, --dnsmasq-dhcp-output-file DNSMASQ_DHCP_OUTPUT_FILE
-                        DNSMasq format DHCP output file based on Netbox info.
   -bu NETBOX_BASE_URL, --base-url NETBOX_BASE_URL
                         Netbox base URL.
-  -ltr DHCP_DEFAULT_LEASE_TIME_RANGE, --dhcp-default-lease-time-range DHCP_DEFAULT_LEASE_TIME_RANGE
-                        DHCP Default Lease Time for a DHCP range.
-  -lth DHCP_DEFAULT_LEASE_TIME_HOST, --dhcp-default-lease-time-host DHCP_DEFAULT_LEASE_TIME_HOST
-                        DHCP Default Lease Time for a fixed DCHP host.
-  -min DHCP_HOST_RANGE_OFFSET_MIN, --dhcp-host-range-offset-min DHCP_HOST_RANGE_OFFSET_MIN
-                        DHCP Host range offset minimum.
-  -max DHCP_HOST_RANGE_OFFSET_MAX, --dhcp-host-range-offset-max DHCP_HOST_RANGE_OFFSET_MAX
-                        DHCP Host range offset maximum.
-  -lf DHCP_LEASE_FILE, --dhcp-lease-file DHCP_LEASE_FILE
-                        DHCP Lease file.
-  -da, --dhcp-authoritive
-                        Set DHCP Authoritive flag
-  -ddd DHCP_DEFAULT_DOMAIN, --dhcp-default-domain DHCP_DEFAULT_DOMAIN
-                        DHCP Default Domain.
-  -z ZONEFILE, --zonefile ZONEFILE
+  -d POWERDNS_REC_DOMAIN, --domain POWERDNS_REC_DOMAIN
+                        Domain to be used in the configuration for forward and reverse lookup configurations.
+  -z POWERDNS_REC_ZONEFILE, --zonefile POWERDNS_REC_ZONEFILE
                         Zonefile format to be consumed by Bind or PowerDNS.
-  -zia ZONEFILE_IN_ADDR, --zonefile-in-addr ZONEFILE_IN_ADDR
-                        Zonefile format to be consumed by Bind or PowerDNS,
-                        but specifically for the reverse lookups.
+  -zia POWERDNS_REC_ZONEFILE_IN_ADDR, --zonefile-in-addr POWERDNS_REC_ZONEFILE_IN_ADDR
+                        Zonefile format to be consumed by Bind or PowerDNS, but specifically for the reverse lookups.
   -rl, --relativize     Create relativized names in the zonefile
-  -e ZONEHEADER, --zoneheader ZONEHEADER
-                        Zonefile header template.
-  -f ZONEFOOTER, --zonefooter ZONEFOOTER
+  -f POWERDNS_REC_ZONEFILE_FOOTER, --zone-footer POWERDNS_REC_ZONEFILE_FOOTER
                         Zonefile footer template.
 ```
 
 ## Example script to mash it all up
 ```
-echo "Running netbox-2-dhcp-dns.py"
-
-~/netbox-tools/netbox-2-dhcp-dns.py \
-    --authkey <heregoesyourkey> \
-    --base-url http://netbox.koeroo.local \
-    --dnsmasq-dhcp-output-file /tmp/generated-dhcp.conf \
-    --dhcp-default-lease-time-range 600m \
-    --dhcp-default-lease-time-host 90m \
-    --dhcp-host-range-offset-min 100 \
-    --dhcp-host-range-offset-max 199 \
-    --dhcp-lease-file /var/cache/dnsmasq/dnsmasq-dhcp.leasefile \
-    -da \
-    --dhcp-default-domain koeroo.local \
-    --zonefile /tmp/generated-zonefile \
-    --zoneheader /home/pi/config/dns/zonefiles/templates/koeroo.local.header \
-    --zonefooter /home/pi/config/dns/zonefiles/templates/koeroo.local.footer \
-    --zonefile-in-addr /tmp/generated-168.192.in-addr.arpa.local
+echo "Start update: PowerDNS :: Zonefile and reverse zonefile"
+./netbox-2-powerdns-rec.py \
+    --config ~/netbox-tools-3-config/netbox.config
 
 if [ $? -ne 0 ]; then
     echo "Error!"
     exit 1
 fi
 
-sudo cp \
-    /tmp/generated-dhcp.conf \
-    /etc/dnsmasq.d/dhcp.conf
+echo "Output files:"
+ls -l /tmp/new_powerdns_zonefile
+ls -l /tmp/new_powerdns_zonefile_in_addr
 
-echo "Reloading DNSMasq"
-sudo systemctl restart dnsmasq
+echo "Moving files"
+sudo cp -v \
+        /tmp/new_powerdns_zonefile \
+        /etc/powerdns/zonefiles/koeroo.lan
 
-sudo cp \
-    /tmp/generated-zonefile \
-    /etc/powerdns/zonefiles/koeroo.local
+sudo cp -v \
+        /tmp/new_powerdns_zonefile_in_addr \
+        /etc/powerdns/zonefiles/168.192.in-addr.arpa.lan
 
-echo "Backup running zonefile"
-sudo cp -v /etc/powerdns/zonefiles/koeroo.local        /etc/powerdns/zonefiles/koeroo.local.backup
-sudo cp -v /tmp/generated-zonefile                     /etc/powerdns/zonefiles/koeroo.local
-     cp -v /tmp/generated-zonefile                     /home/pi/config/dns/powerdns/zonefiles/koeroo.local
-sudo cp -v /tmp/generated-168.192.in-addr.arpa.local   /etc/powerdns/zonefiles/168.192.in-addr.arpa.local
-
-### Assuming both koeroo.local and 168.192.in-addr.arpa.local are configured in
-### recursor.conf to be loaded for the zone koeroo.local. and 168.192.in-addr.arpa.
 echo sudo rec_control reload-zones
 sudo rec_control reload-zones
+
+echo "Return code: $?"
 ```
