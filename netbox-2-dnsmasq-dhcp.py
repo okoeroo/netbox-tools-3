@@ -42,10 +42,13 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_gateway(ctx, prefix_obj, dns
                     netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
                     "3", default_gateway_ip_addr))
 
-
-        # Get DNS from the default gateway record
-        default_dnsname_ip_addr = netboxers_queries.get_dns_host_from_ip_address(ctx, \
-            default_gateway_ip_addr_obj)
+        # Override from config or args, or fetch the config from netbox
+        if 'dnsmasq_dhcp_override_dns_server' in ctx and ctx['dnsmasq_dhcp_override_dns_server'] is not None:
+            default_dnsname_ip_addr = ctx['dnsmasq_dhcp_override_dns_server']
+        else:
+            # Get DNS from the default gateway record
+            default_dnsname_ip_addr = netboxers_queries.get_dns_host_from_ip_address(ctx, \
+                default_gateway_ip_addr_obj)
 
         # Write DNS server
         if default_dnsname_ip_addr is not None:

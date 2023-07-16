@@ -4,6 +4,8 @@ import os
 import argparse
 import configparser
 import errno
+import ipaddress
+
 
 ### Sanity checks: on failure, makes no sense to continue
 def sanity_checks(ctx):
@@ -29,10 +31,22 @@ def sanity_checks(ctx):
             ctx['generic_netbox_base_url'])
         sys.exit(1)
 
+    # Override DNS Server
+    if 'dnsmasq_dhcp_override_dns_server' in ctx and ctx['dnsmasq_dhcp_override_dns_server'] is not None:
+        try:
+            ipaddress.ip_address(ctx['dnsmasq_dhcp_override_dns_server'])
+        except ipaddress.AddressValueError:
+            print(f"Error: this is not a proper IP address: {ctx['dnsmasq_dhcp_override_dns_server']}")
+            sys.exit(1)
+
+        ctx['dnsmasq_dhcp_override_dns_server'] = ipaddress.ip_address(ctx['dnsmasq_dhcp_override_dns_server'])
+
+
     # Debug output
     if ctx['generic_verbose']:
         print('Authkey', ctx['generic_authkey'])
         print('Netbox base URL', ctx['generic_netbox_base_url'])
+        print('Override DNS server', ctx['dnsmasq_dhcp_override_dns_server'])
         print()
     return True
 
@@ -112,6 +126,11 @@ def argparsing(ctx):
                         default=None,
                         # default="koeroo.lan",
                         type=str)
+    parser.add_argument("-ods", "--override-dns-server",
+                        dest='override_dns_server',
+                        help="Override DNS Server configuration with provided IP address",
+                        default=None,
+                        type=str)
 
     args = parser.parse_args()
 
@@ -128,6 +147,7 @@ def argparsing(ctx):
     ctx['args_authoritive']               = args.dhcp_authoritive
     ctx['args_default_domain']            = args.dhcp_default_domain
     ctx['args_default_ntp_server']        = args.dhcp_default_ntp_server
+    ctx['args_override_dns_server']       = args.override_dns_server
 
     return ctx
 
