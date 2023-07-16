@@ -76,6 +76,8 @@ options:
                         Set DHCP Authoritive flag
   -ddd DHCP_DEFAULT_DOMAIN, --dhcp-default-domain DHCP_DEFAULT_DOMAIN
                         DHCP Default Domain.
+  -ods OVERRIDE_DNS_SERVER, --override-dns-server OVERRIDE_DNS_SERVER
+                        Override DNS Server configuration with provided IP address
 ```
 
 ## Example netbox.config file
@@ -99,6 +101,8 @@ host_range_offset_max = 190
 
 default_domain = koeroo.lan
 default_ntp_server = 192.168.1.2
+
+override_dns_server = 192.168.1.3
 ```
 
 ## Example script to mash it all up
