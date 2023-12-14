@@ -8,7 +8,8 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "program": "netbox-2-dnsmasq-dhcp.py",
+            "args": ["-c", "netbox.config"],
             "console": "integratedTerminal",
             "justMyCode": true
         }

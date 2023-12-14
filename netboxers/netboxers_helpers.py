@@ -12,6 +12,13 @@ def pp(obj):
     pp.pprint(obj)
 
 
+def test_write_to_ddo_fh(ctx):
+    # Truncate file
+    if ctx['dnsmasq_dhcp_output_file'] is not None:
+        open(ctx['dnsmasq_dhcp_output_file'], 'w').close()
+        return
+
+
 def write_to_ddo_fh(ctx, s):
     # Truncate file
     if s is None and ctx['dnsmasq_dhcp_output_file'] is not None:
