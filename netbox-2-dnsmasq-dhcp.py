@@ -211,7 +211,6 @@ def netbox_to_dnsmasq_dhcp_config(ctx):
     netboxers_helpers.write_to_ddo_fh(ctx, str(dnsmasq_dhcp_config))
 
 
-
 ### Main
 def main(ctx: {}):
     try:
