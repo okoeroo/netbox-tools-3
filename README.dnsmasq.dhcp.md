@@ -47,7 +47,9 @@ dhcp-host=vrf_66_homelan_vlan_66,80:EE:73:FF:FF:FF,mainport_mainbridge,192.168.1
 
 ## Usage
 ```
-usage: ./netbox-2-dnsmasq-dhcp.py [-h] [-v] [-c CONFIGFILE] [-k AUTHKEY] [-do DNSMASQ_DHCP_OUTPUT_FILE] [-bu NETBOX_BASE_URL] [-ltr DHCP_DEFAULT_LEASE_TIME_RANGE] [-lth DHCP_DEFAULT_LEASE_TIME_HOST] [-min DHCP_HOST_RANGE_OFFSET_MIN] [-max DHCP_HOST_RANGE_OFFSET_MAX] [-dn DHCP_DEFAULT_NTP_SERVER] [-lf DHCP_LEASE_FILE] [-da] [-ddd DHCP_DEFAULT_DOMAIN]
+usage: configuration.py [-h] [-v] [-c CONFIGFILE] [-k AUTHKEY] [-do DNSMASQ_DHCP_OUTPUT_FILE] [-bu NETBOX_BASE_URL] [-ltr DHCP_DEFAULT_LEASE_TIME_RANGE] [-lth DHCP_DEFAULT_LEASE_TIME_HOST]
+                        [-min DHCP_HOST_RANGE_OFFSET_MIN] [-max DHCP_HOST_RANGE_OFFSET_MAX] [-dn DHCP_DEFAULT_NTP_SERVER] [-lf DHCP_LEASE_FILE] [-da] [-ddd DHCP_DEFAULT_DOMAIN] [-dbf DHCP_BOOT_FILENAME]
+                        [-dbs DHCP_BOOT_SERVERNAME] [-dba DHCP_BOOT_ADDRESS] [-ods OVERRIDE_DNS_SERVER]
 
 options:
   -h, --help            show this help message and exit
@@ -76,6 +78,12 @@ options:
                         Set DHCP Authoritive flag
   -ddd DHCP_DEFAULT_DOMAIN, --dhcp-default-domain DHCP_DEFAULT_DOMAIN
                         DHCP Default Domain.
+  -dbf DHCP_BOOT_FILENAME, --dhcp-boot-filename DHCP_BOOT_FILENAME
+                        DHCP PXE boot filename.
+  -dbs DHCP_BOOT_SERVERNAME, --dhcp-boot-servername DHCP_BOOT_SERVERNAME
+                        DHCP PXE boot servername.
+  -dba DHCP_BOOT_ADDRESS, --dhcp-boot-address DHCP_BOOT_ADDRESS
+                        DHCP PXE boot address.
   -ods OVERRIDE_DNS_SERVER, --override-dns-server OVERRIDE_DNS_SERVER
                         Override DNS Server configuration with provided IP address
 ```
@@ -101,6 +109,10 @@ host_range_offset_max = 190
 
 default_domain = koeroo.lan
 default_ntp_server = 192.168.1.2
+
+boot_filename = netboot.xyz.kpxe
+boot_servername = netboot.xyz
+boot_address = 192.168.123.45
 
 override_dns_server = 192.168.1.3
 ```

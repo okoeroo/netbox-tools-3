@@ -16,6 +16,10 @@ host_range_offset_max = 190
 default_domain = koeroo.lan
 default_ntp_server = 192.168.1.2
 
+# boot_filename = netboot.xyz.kpxe
+# boot_servername = netboot.xyz
+# boot_address = 192.168.123.45
+
 # override_dns_server = 192.168.1.2
 
 [powerdns_rec]
