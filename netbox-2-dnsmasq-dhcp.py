@@ -197,6 +197,13 @@ def netbox_to_dnsmasq_dhcp_config(ctx):
 
 ### Main
 def main(ctx: {}):
+    try:
+        # Test if writing is possible of results
+        netboxers_helpers.test_write_to_ddo_fh(ctx)
+    except FileNotFoundError:
+        print(f"Error: could not write to \'{ctx['dnsmasq_dhcp_output_file']}\'", file=sys.stderr)
+        return
+
     if 'dnsmasq_dhcp_output_file' in ctx and ctx['dnsmasq_dhcp_output_file'] is not None:
         print("Netbox to DNSMasq DHCP config")
         netbox_to_dnsmasq_dhcp_config(ctx)
