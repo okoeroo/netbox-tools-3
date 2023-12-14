@@ -16,6 +16,8 @@ host_range_offset_max = 190
 default_domain = koeroo.lan
 default_ntp_server = 192.168.1.2
 
+# override_dns_server = 192.168.1.2
+
 [powerdns_rec]
 zonefile = /tmp/zonefile
 zonefile_in_addr = /tmp/zonefile_in_addr
