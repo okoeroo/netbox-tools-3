@@ -5,6 +5,7 @@ import pprint
 import re
 import ipaddress
 import requests
+import dns
 
 
 def pp(obj):
