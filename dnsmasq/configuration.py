@@ -126,6 +126,21 @@ def argparsing(ctx):
                         default=None,
                         # default="koeroo.lan",
                         type=str)
+    parser.add_argument("-dbf", "--dhcp-boot-filename",
+                        dest='dhcp_boot_filename',
+                        help="DHCP PXE boot filename.",
+                        default=None,
+                        type=str)
+    parser.add_argument("-dbs", "--dhcp-boot-servername",
+                        dest='dhcp_boot_servername',
+                        help="DHCP PXE boot servername.",
+                        default=None,
+                        type=str)
+    parser.add_argument("-dba", "--dhcp-boot-address",
+                        dest='dhcp_boot_address',
+                        help="DHCP PXE boot address.",
+                        default=None,
+                        type=str)
     parser.add_argument("-ods", "--override-dns-server",
                         dest='override_dns_server',
                         help="Override DNS Server configuration with provided IP address",
@@ -147,10 +162,12 @@ def argparsing(ctx):
     ctx['args_authoritive']               = args.dhcp_authoritive
     ctx['args_default_domain']            = args.dhcp_default_domain
     ctx['args_default_ntp_server']        = args.dhcp_default_ntp_server
+    ctx['args_dhcp_boot_filename']        = args.dhcp_boot_filename
+    ctx['args_dhcp_boot_servername']      = args.dhcp_boot_servername
+    ctx['args_dhcp_boot_address']         = args.dhcp_boot_address
     ctx['args_override_dns_server']       = args.override_dns_server
 
     return ctx
-
 
 
 def parse_config_section(ctx, config, section):

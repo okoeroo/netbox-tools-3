@@ -172,17 +172,34 @@ def netbox_to_dnsmasq_dhcp_config(ctx):
     # Create DNSMasq DHCP config
     dnsmasq_dhcp_config = DNSMasq_DHCP_Config()
 
-    # Fetch header info
+    # File header: set dhcp-leasefile
     dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
             DNSMasq_DHCP_Generic_Switchable("dhcp-leasefile", ctx['dnsmasq_dhcp_lease_file']))
 
+    # File header: set authoritive DHCP
     if ctx['dnsmasq_dhcp_authoritive']:
         dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
                 DNSMasq_DHCP_Generic_Switchable("dhcp-authoritative", None))
 
+    # File header: set default domain
     dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
             DNSMasq_DHCP_Generic_Switchable("domain", ctx['dnsmasq_dhcp_default_domain']))
 
+    # File header: set PXE boot filename, servername and address
+    if 'dnsmasq_dhcp_boot_filename' in ctx:
+        dhcp_boot_elems = []
+        dhcp_boot_elems.append(ctx['dnsmasq_dhcp_boot_filename'])
+        if 'dnsmasq_dhcp_boot_servername' in ctx:
+            dhcp_boot_elems.append(ctx['dnsmasq_dhcp_boot_servername'])
+        if 'dnsmasq_dhcp_boot_address' in ctx:
+            dhcp_boot_elems.append(ctx['dnsmasq_dhcp_boot_address'])
+        
+        # Join the elements together with comma-delimeter
+        dhcp_boot = ','.join(dhcp_boot_elems)
+
+        # Finalize the configuration
+        dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
+                DNSMasq_DHCP_Generic_Switchable("dhcp-boot", dhcp_boot))
 
     # Get prefixes and process each
     dnsmasq_dhcp_config = netbox_process_prefixes_into_dnsmasq_dhcp_config(ctx, dnsmasq_dhcp_config)
