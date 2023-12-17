@@ -57,6 +57,11 @@ def strip_query(ctx, query):
     return query
 
 def query_netbox_call(ctx, query, req_parameters=None):
+    if not 'http_session_handle' in ctx:
+        ctx['http_session_handle'] = requests.Session()
+
+    session = ctx['http_session_handle']
+
     req_headers = {}
     req_headers['Authorization'] = " ".join(["Token", ctx['generic_authkey']])
     req_headers['Content-Type'] = "application/json"
@@ -67,7 +72,8 @@ def query_netbox_call(ctx, query, req_parameters=None):
     if ctx['generic_verbose']:
         print(query_stripped)
 
-    get_req = requests.get('{}/api/{}'.format(ctx['generic_netbox_base_url'], query_stripped),
+#    get_req = requests.get('{}/api/{}'.format(ctx['generic_netbox_base_url'], query_stripped),
+    get_req = session.get('{}/api/{}'.format(ctx['generic_netbox_base_url'], query_stripped),
                            timeout=10,
                            headers=req_headers,
                            params=req_parameters)
