@@ -17,10 +17,10 @@ From the prefixes, the associated VRF is retrieved and at which Site it is opera
 The name of the VRF and the name of the vlan will be concattenated and result into the name of the DHCP scope. The default gateway and DNS server is configured. The prefix will be configured with a DHCP range based on the `--dhcp-host-range-offset-min` and `--dhcp-host-range-offset-max` parameters, with a default lease time from the `--dhcp-default-lease-time-range` parameters.
 
 #### Default gateway selection
-Based on the VRF assessed, the first IP address with the tag `net_default_gateway` will be selected as the default gateway.
+Based on the VRF assessed, the first IP address with the tag `net_default_gateway` will be selected as the default gateway. Unless, overridden in a matching `[prefix:<cidr>]` section from the configuration file with a `gateway = <ip addr>`.
 
 #### DNS server selection
-The IP address of the default gateway will retrieved. The DNS server field associated to the IP address is retrieved and used as the DNS server.
+The IP address of the default gateway will retrieved. The DNS server field associated to the IP address is retrieved and used as the DNS server. Unless, overridden in a matching `[prefix:<cidr>]` section from the configuration file with a `dns = <ip addr>`.
 
 
 ### DHCP example output
@@ -115,6 +115,11 @@ boot_servername = netboot.xyz
 boot_address = 192.168.123.45
 
 override_dns_server = 192.168.1.3
+
+[prefix:192.168.200.0/24]
+gateway = 192.168.200.55
+dns = 192.168.200.66
+ntp = 192.168.200.77
 ```
 
 ## Example script to mash it all up
