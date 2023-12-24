@@ -27,3 +27,8 @@ zonefile = /tmp/zonefile
 zonefile_in_addr = /tmp/zonefile_in_addr
 domain = koeroo.lan
 zonefile_footer = zonefile.footer.example
+
+[prefix:192.168.200.0/24]
+gateway = 192.168.200.1
+dns = 192.168.200.2
+ntp = 192.168.200.1

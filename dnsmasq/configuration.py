@@ -185,6 +185,22 @@ def parse_config_section(ctx, config, section):
     return ctx
 
 
+# Look for all [prefix:<cidr>]
+def parse_config_prefixes(ctx, config):
+    # init prefixes overrides
+    ctx['prefixes'] = {}
+
+    # Dynamically load prefix information into the ctx
+    for section in config.sections():
+        if section.startswith("prefix:"):
+            prefix = section.split(":")[1] 
+            ctx['prefixes'][prefix] = {}
+            for key in config[section]:
+                ctx['prefixes'][prefix][key] = config[section][key]
+
+    return ctx
+
+
 def parse_config(ctx):
     config = configparser.ConfigParser()
 
@@ -196,6 +212,7 @@ def parse_config(ctx):
 
     ctx = parse_config_section(ctx, config, 'generic')
     ctx = parse_config_section(ctx, config, 'dnsmasq_dhcp')
+    ctx = parse_config_prefixes(ctx, config)
 
     return ctx
 
