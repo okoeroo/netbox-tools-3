@@ -25,7 +25,7 @@ def netbox_generate_dnsmasq_dhcp_section_header_info(prefix_obj, dnsmasq_dhcp_se
     return dnsmasq_dhcp_section
 
 
-# Get default gateway
+# Get default gateway for the prefix
 def netbox_process_prefix_into_dnsmasq_dhcp_section_gateway(ctx, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
     # Check if there is a specific prefix with gateway in the config file
     if 'prefixes' in ctx and \
@@ -59,12 +59,13 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_gateway(ctx, prefix_obj, dns
     return dnsmasq_dhcp_section
 
 
-# Get default gateway from the VRF based on a tag
+# Get DNS server configuration for the prefix
 def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
     # Override from config or args, or fetch the config from netbox
     if 'dnsmasq_dhcp_override_dns_server' in ctx and ctx['dnsmasq_dhcp_override_dns_server'] is not None:
         default_dnsname_ip_addr = ctx['dnsmasq_dhcp_override_dns_server']
 
+        # Record the DNS server
         dnsmasq_dhcp_section.append_dhcp_option(
                 DNSMasq_DHCP_Option(
                     netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
@@ -72,11 +73,11 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx, prefix_obj, dnsmasq
 
         return dnsmasq_dhcp_section
 
-    # Check if there is a specific prefix with gateway in the config file for its prefix
+    # Check if there is a specific prefix with dns in the config file for its prefix
     if 'prefixes' in ctx and prefix_obj['prefix'] in ctx['prefixes'] and \
         'dns' in ctx['prefixes'][prefix_obj['prefix']]:
 
-        # Record the default gateway
+        # Record the DNS server
         dnsmasq_dhcp_section.append_dhcp_option(
                 DNSMasq_DHCP_Option(
                     netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
@@ -94,7 +95,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx, prefix_obj, dnsmasq
     default_gateway_ip_addr = \
         ipaddress.ip_address(default_gateway_ip_addr_obj['address'].split("/")[0])
 
-    # Write default gateway
+    # Write DNS server based on gateway information
     if default_gateway_ip_addr is not None:
         # Get DNS from the default gateway record
         default_dnsname_ip_addr = netboxers_queries.get_dns_host_from_ip_address(ctx, \
@@ -102,7 +103,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx, prefix_obj, dnsmasq
 
         # Write DNS server
         if default_dnsname_ip_addr is not None:
-            # Record the default gateway
+            # Record the DNS server
             ## Recording scope, option and value
             dnsmasq_dhcp_section.append_dhcp_option(
                     DNSMasq_DHCP_Option(
@@ -112,13 +113,13 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx, prefix_obj, dnsmasq
     return dnsmasq_dhcp_section
 
 
-# Get default gateway from the configuration file
+# Get ntp from the configuration file for the prefix
 def netbox_process_prefix_into_dnsmasq_dhcp_section_ntp(ctx, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
-    # Check if there is a specific prefix with gateway in the config file for its prefix
+    # Check if there is a specific prefix with ntp in the config file for its prefix
     if 'prefixes' in ctx and prefix_obj['prefix'] in ctx['prefixes'] and \
         'ntp' in ctx['prefixes'][prefix_obj['prefix']]:
 
-        # Record the default gateway
+        # Record the ntp server
         dnsmasq_dhcp_section.append_dhcp_option(
                 DNSMasq_DHCP_Option(
                     netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
@@ -126,7 +127,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_ntp(ctx, prefix_obj, dnsmasq
 
         return dnsmasq_dhcp_section
 
-    # Write default NTP server
+    # Write NTP server
     if 'dnsmasq_dhcp_default_ntp_server' in ctx and ctx['dnsmasq_dhcp_default_ntp_server'] is not None:
         dnsmasq_dhcp_section.append_dhcp_option(
                 DNSMasq_DHCP_Option(
