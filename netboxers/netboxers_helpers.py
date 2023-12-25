@@ -13,14 +13,14 @@ def pp(obj):
     pp.pprint(obj)
 
 
-def test_write_to_ddo_fh(ctx):
+def test_write_to_ddo_fh(ctx: dict):
     # Truncate file
     if ctx['dnsmasq_dhcp_output_file'] is not None:
         open(ctx['dnsmasq_dhcp_output_file'], 'w').close()
         return
 
 
-def write_to_ddo_fh(ctx, s):
+def write_to_ddo_fh(ctx: dict, s: str):
     # Truncate file
     if s is None and ctx['dnsmasq_dhcp_output_file'] is not None:
         open(ctx['dnsmasq_dhcp_output_file'], 'w').close()
@@ -34,11 +34,11 @@ def write_to_ddo_fh(ctx, s):
             the_file.write(s + os.linesep)
 
 
-def normalize_name(name):
+def normalize_name(name: str):
     return name.lower().replace(" ", "_").replace("-", "_").replace("\"", "").replace("\'", "")
 
 
-def dns_canonicalize(s):
+def dns_canonicalize(s: str):
     if not s.endswith('.'):
         return s + '.'
     else:
@@ -48,7 +48,7 @@ def get_ctx():
     ctx = {}
     return ctx
 
-def strip_query(ctx, query):
+def strip_query(ctx: dict, query: str):
     # Pattern is base_url/api/query, all double bits should be stripped 
 
     if query.startswith(ctx['generic_netbox_base_url'] + '/api/'):
@@ -56,7 +56,7 @@ def strip_query(ctx, query):
 
     return query
 
-def query_netbox_call(ctx, query, req_parameters=None):
+def query_netbox_call(ctx: str, query: str, req_parameters: dict = None):
     if not 'http_session_handle' in ctx:
         ctx['http_session_handle'] = requests.Session()
 
@@ -72,7 +72,6 @@ def query_netbox_call(ctx, query, req_parameters=None):
     if ctx['generic_verbose']:
         print(query_stripped)
 
-#    get_req = requests.get('{}/api/{}'.format(ctx['generic_netbox_base_url'], query_stripped),
     get_req = session.get('{}/api/{}'.format(ctx['generic_netbox_base_url'], query_stripped),
                            timeout=10,
                            headers=req_headers,
@@ -86,7 +85,7 @@ def query_netbox_call(ctx, query, req_parameters=None):
     # Results retrieved
     return get_req.json()
 
-def query_netbox(ctx, query, req_parameters=None):
+def query_netbox(ctx: dict, query: str, req_parameters: dict = None):
 
     # Results retrieved
     response = query_netbox_call(ctx, query, req_parameters)
@@ -107,7 +106,7 @@ def query_netbox(ctx, query, req_parameters=None):
     return response
 
 
-def add_rr_to_zone(ctx, zone, rr_obj):
+def add_rr_to_zone(ctx: dict, zone, rr_obj):
     if 'name' not in rr_obj:
         raise "rr_obj missing name"
 

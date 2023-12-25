@@ -7,7 +7,7 @@ from netboxers import netboxers_helpers
 
 
 # Default gateway from the VRF
-def get_net_default_gateway_from_vrf(ctx, vrf_id):
+def get_net_default_gateway_from_vrf(ctx: dict, vrf_id: int):
 
     # Extract net_default_gateway from the VRF
     parameters = {}
@@ -24,7 +24,7 @@ def get_net_default_gateway_from_vrf(ctx, vrf_id):
 # Grab DNS host based on the DNS configured on the default gateway
 # host of a VRF
 # Assuming this variable is filled
-def get_dns_host_from_ip_address(ctx, ip_addr_obj):
+def get_dns_host_from_ip_address(ctx: dict, ip_addr_obj):
 
     if ip_addr_obj['dns_name'] is not None and \
         len(ip_addr_obj['dns_name']) > 0:
@@ -35,21 +35,21 @@ def get_dns_host_from_ip_address(ctx, ip_addr_obj):
     else:
         return None
 
-def get_ipaddress_from_ipaddresses_obj(ip_addr_obj):
+def get_ipaddress_from_ipaddresses_obj(ip_addr_obj: dict):
     return str(ipaddress.ip_address(ip_addr_obj['address'].split("/")[0]))
 
-def get_network_address_from_ipaddresses_obj(ip_addr_obj):
+def get_network_address_from_ipaddresses_obj(ip_addr_obj: dict):
     return str(ipaddress.ip_network(ip_addr_obj['address'], strict=False))
 
 
-def get_macaddress_from_ipaddresses_obj(ctx, ip_addr_obj):
+def get_macaddress_from_ipaddresses_obj(ctx: dict, ip_addr_obj: dict):
 
     # Get MAC from interface object
     interface_obj = netboxers_helpers.query_netbox(ctx, ip_addr_obj['assigned_object']['url'])
     return interface_obj['mac_address']
 
 
-def get_status_of_devvm_from_ipaddresses_obj(ctx, ip_addr_obj):
+def get_status_of_devvm_from_ipaddresses_obj(ctx: dict, ip_addr_obj: dict):
     obj = netboxers_helpers.query_netbox(ctx, ip_addr_obj['assigned_object']['url'])
 
     if 'device' in obj:
@@ -62,7 +62,7 @@ def get_status_of_devvm_from_ipaddresses_obj(ctx, ip_addr_obj):
         raise "Assigned object is not a device nor a virtual_machine."
 
 
-def get_hostname_from_ipaddresses_obj(ip_addr_obj):
+def get_hostname_from_ipaddresses_obj(ip_addr_obj: dict):
     if 'assigned_object' not in ip_addr_obj:
         return "no_assigned_object"
 
@@ -80,7 +80,7 @@ def get_hostname_from_ipaddresses_obj(ip_addr_obj):
         sys.exit(1)
 
 
-def get_interface_name_from_ipaddresses_obj(ip_addr_obj):
+def get_interface_name_from_ipaddresses_obj(ip_addr_obj: dict):
     if 'assigned_object' not in ip_addr_obj:
         return "no_assigned_object"
 
@@ -88,7 +88,7 @@ def get_interface_name_from_ipaddresses_obj(ip_addr_obj):
     return ip_addr_obj['assigned_object']['name']
 
 
-def get_dhcp_host_dict_from_vrf(ctx, vrf_id):
+def get_dhcp_host_dict_from_vrf(ctx: dict, vrf_id: int):
     parameters = {}
     parameters['vrf_id'] = vrf_id
     q_ip_addrs = netboxers_helpers.query_netbox(ctx, "ipam/ip-addresses/", parameters)
@@ -108,7 +108,7 @@ def get_dhcp_host_dict_from_vrf(ctx, vrf_id):
 
 ## Based on the mac address fetch a device.
 ## The device can be a virtual machine or device
-def fetch_devices_from_mac_address(ctx, mac_address):
+def fetch_devices_from_mac_address(ctx: str, mac_address: str):
     parameters = {}
     parameters['mac_address'] = mac_address
 
@@ -123,11 +123,11 @@ def fetch_devices_from_mac_address(ctx, mac_address):
     return devices
 
 
-def get_vrf_vlan_name_from_prefix_obj(prefix_obj):
+def get_vrf_vlan_name_from_prefix_obj(prefix_obj: dict):
     return prefix_obj['vrf']['name'] + "_vlan_" + str(prefix_obj['vlan']['vid'])
 
 
-def assemble_dhcp_host_dict_from_ip_addr_obj(ctx, ip_addr_obj):
+def assemble_dhcp_host_dict_from_ip_addr_obj(ctx: dict, ip_addr_obj: dict):
     res_tup = {}
 
     res_tup['ip_addr'] = get_ipaddress_from_ipaddresses_obj(ip_addr_obj)
@@ -147,14 +147,3 @@ def assemble_dhcp_host_dict_from_ip_addr_obj(ctx, ip_addr_obj):
     res_tup['ip_addr_obj'] = ip_addr_obj
 
     return res_tup
-
-
-
-###### DEAD CODE BELOW
-
-def extract_primary_ip_from_device_obj(device):
-
-    # Extract primary IP from device or virtual machine
-    if 'primary_ip' in device['results'][0] and 'address' in device['results'][0]['primary_ip']:
-        plain_ip_address = device['results'][0]['primary_ip']['address'].split('/')[0]
-
