@@ -185,6 +185,12 @@ def add_rr_to_zone(ctx: dict, zone, rr_obj):
         rdataset.add(rdata, ttl=rr_obj['ttl'])
 
 
+### Cleanup hostname. Examples:
+### hostname_eth0.1 => hostname_eth0__1
+### hostname_eth0:1 => hostname_eth0___1
+def dnsmasq_hostname_cleanup(raw_hostname: str) -> str:
+    return raw_hostname.replace(":", "___").replace(".", "__")
+
 
 ######### begin of dead code
 

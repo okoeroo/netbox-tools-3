@@ -2,7 +2,7 @@
 
 import ipaddress
 
-from netboxers import netboxers_queries
+from netboxers import netboxers_helpers, netboxers_queries
 from netboxers.models.dnsmasq_dhcp import DNSMasq_DHCP_Section, DNSMasq_DHCP_Option, DNSMasq_DHCP_Range, DNSMasq_DHCP_Host
 
 
@@ -166,7 +166,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx, prefix_obj, dnsma
         dnsmasq_dhcp_section.append_dhcp_host(
                 DNSMasq_DHCP_Host(
                     netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                    tup['mac_address'], tup['host_iface'],
+                    tup['mac_address'], netboxers_helpers.dnsmasq_hostname_cleanup(tup['host_iface']),
                     tup['ip_addr'], ctx['dnsmasq_dhcp_default_lease_time_host']))
 
     return dnsmasq_dhcp_section
