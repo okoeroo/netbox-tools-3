@@ -193,72 +193,12 @@ def dnsmasq_hostname_cleanup(raw_hostname: str) -> str:
 
 
 ######### begin of dead code
-
-def put_zonefile(ctx):
-    header = open(ctx['zoneheader']).read()
-    footer = open(ctx['zonefooter']).read()
-
-    # Write header to buffer
-    output = header
-
-    longest_hostname = 0
-    for dhcp_host_tuple in ctx['dhcp-hosts']:
-        if len(dhcp_host_tuple['hostname']) > longest_hostname:
-            longest_hostname = len(dhcp_host_tuple['hostname'])
-
-    for dhcp_host_tuple in ctx['dhcp-hosts']:
-        w_len = longest_hostname - len(dhcp_host_tuple['hostname']) + 4
-        output = output + dhcp_host_tuple['hostname'].lower() + " " * w_len + "A" + "  " + dhcp_host_tuple['ipaddress']
-        output = output + "\n"
-
-    # Write footer to output buffer
-    output = output + footer
-
-    if ctx['generic_verbose'] == True:
-        print(output)
-
-    f = open(ctx['zonefile'], 'w')
-    f.write(output)
-    f.close()
-
-
-
 def is_ipaddress(to_check):
     try:
         ipaddress.ip_address(to_check)
         return True
     except Exception as err:
         return False
-
-
-
-def load_file_into_array(filename, emptylines=True):
-    if emptylines:
-        return open(filename, "r", encoding='utf-8').read().splitlines()
-    else:
-        return filter(None, open(filename, "r", encoding='utf-8').read().splitlines())
-
-
-def get_uuid_value(value):
-    m = re.search("UUID:(.*)$", value)
-    if m:
-        return m.group(1)
-    else:
-        return None
-
-def is_lease_time(value):
-    m = re.search("^[0-9]+[hms]", value)
-    if m:
-        return True
-    else:
-        return False
-
-def get_lease_time(value):
-    m = re.search("^[0-9]+[hms]", value)
-    if m:
-        return m.group(0)
-    else:
-        return None
 
 def is_valid_macaddr802(value):
     allowed = re.compile(r"""
@@ -273,5 +213,3 @@ def is_valid_macaddr802(value):
         return False
     else:
         return True
-
-
