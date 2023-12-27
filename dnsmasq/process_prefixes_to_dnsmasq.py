@@ -73,6 +73,27 @@ def netbox_to_dnsmasq_dhcp_config(ctx: dict):
         dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
                 DNSMasq_DHCP_Generic_Switchable("dhcp-boot", dhcp_boot))
 
+        ### HACK Add PXE boot hacks
+        # inspect the vendor class string and match the text to set the tag
+        dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
+                DNSMasq_DHCP_Generic_Switchable("dhcp-vendorclass", "BIOS,PXEClient:Arch:00000"))
+        dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
+                DNSMasq_DHCP_Generic_Switchable("dhcp-vendorclass", "UEFI32,PXEClient:Arch:00006"))
+        dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
+                DNSMasq_DHCP_Generic_Switchable("dhcp-vendorclass", "UEFI,PXEClient:Arch:00007"))
+        dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
+                DNSMasq_DHCP_Generic_Switchable("dhcp-vendorclass", "UEFI64,PXEClient:Arch:00009"))
+
+        # Set the boot file name based on the matching tag from the vendor class (above)
+        dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
+                DNSMasq_DHCP_Generic_Switchable("dhcp-boot", "net:UEFI32," + dhcp_boot))
+        dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
+                DNSMasq_DHCP_Generic_Switchable("dhcp-boot", "net:BIOS," + dhcp_boot))
+        dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
+                DNSMasq_DHCP_Generic_Switchable("dhcp-boot", "net:UEFI64," + dhcp_boot))
+        dnsmasq_dhcp_config.append_to_dhcp_config_generic_switches(
+                DNSMasq_DHCP_Generic_Switchable("dhcp-boot", "net:UEFI," + dhcp_boot))
+
     # Get prefixes and process each
     dnsmasq_dhcp_config = netbox_process_prefixes_into_dnsmasq_dhcp_config(ctx, dnsmasq_dhcp_config)
 
