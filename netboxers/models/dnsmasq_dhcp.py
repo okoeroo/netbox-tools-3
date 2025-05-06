@@ -168,7 +168,7 @@ class DNSMasq_DHCP_Host:
 
 class DNSMasq_DHCP_Section:
     def __init__(self):
-        self.site = None
+        self.scope = None
         self.role = None
         self.vlan_id = None
         self.vlan_name = None
@@ -179,8 +179,8 @@ class DNSMasq_DHCP_Section:
         self.dhcp_ranges = []
         self.dhcp_hosts = []
 
-    def set_site(self, site):
-        self.site = site
+    def set_scope(self, scope):
+        self.scope = scope
 
     def set_role(self, role):
         self.role = role
@@ -209,7 +209,7 @@ class DNSMasq_DHCP_Section:
 
     def get_header(self):
         # Example
-        ### Site:    Home
+        ### Scope:   Home
         ### Role:    Untagged
         ### Vlan:    66 (Home VLAN) with ID: 66
         ### VRF:     vrf_66_homelan
@@ -217,8 +217,8 @@ class DNSMasq_DHCP_Section:
 
         res = []
 
-        if self.site is not None:
-            res.append("### Site:    " + self.site)
+        if self.scope is not None:
+            res.append("### Scope:   " + self.scope)
 
         if self.role is not None:
             res.append("### Role:    " + self.role)

@@ -5,11 +5,17 @@ import ipaddress
 from netboxers import netboxers_helpers, netboxers_queries
 from netboxers.models.dnsmasq_dhcp import DNSMasq_DHCP_Section, DNSMasq_DHCP_Option, DNSMasq_DHCP_Range, DNSMasq_DHCP_Host
 
-
+# TODO: Change set_site to set_scope
 def netbox_generate_dnsmasq_dhcp_section_header_info(prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
     # Record the DNSMasq_DHCP_Section info
-    if prefix_obj['site'] is not None:
-        dnsmasq_dhcp_section.set_site(prefix_obj['site']['name'])
+    if 'scope' in prefix_obj:
+        if prefix_obj['scope'] is not None:
+            dnsmasq_dhcp_section.set_scope(prefix_obj['scope']['name'])
+    # Compatibility with version 3.x
+    elif 'site' in prefix_obj:
+        if prefix_obj['site'] is not None:
+            dnsmasq_dhcp_section.set_scope(prefix_obj['site']['name'])
+
     if prefix_obj['role'] is not None:
         dnsmasq_dhcp_section.set_role(prefix_obj['role']['name'])
     if prefix_obj['vlan'] is not None:
