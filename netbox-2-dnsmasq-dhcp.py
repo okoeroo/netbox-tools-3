@@ -18,7 +18,11 @@ def main(ctx: dict):
 
     if 'dnsmasq_dhcp_output_file' in ctx and ctx['dnsmasq_dhcp_output_file'] is not None:
         print("Netbox to DNSMasq DHCP config")
-        process_prefixes_to_dnsmasq.netbox_to_dnsmasq_dhcp_config(ctx)
+        try:
+            process_prefixes_to_dnsmasq.netbox_to_dnsmasq_dhcp_config(ctx)
+        except Exception as err:
+            print(f"Error: {err}")
+            sys.exit(1)
 
 
 ### Start up

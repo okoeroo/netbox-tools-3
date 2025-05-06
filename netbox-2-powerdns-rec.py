@@ -249,11 +249,19 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 def main(ctx):
     if 'powerdns_rec_zonefile' in ctx and ctx['powerdns_rec_zonefile'] is not None:
         print("Netbox to DNS Zonefile")
-        powerdns_recursor_zonefile(ctx)
+        try:
+            powerdns_recursor_zonefile(ctx)
+        except Exception as err:
+            print(f"Error: {err}")
+            sys.exit(1)
 
     if 'powerdns_rec_zonefile_in_addr' in ctx and ctx['powerdns_rec_zonefile_in_addr'] is not None:
         print("Netbox to DNS Zonefile for reverse lookups")
-        powerdns_recursor_zoneing_reverse_lookups(ctx)
+        try:
+            powerdns_recursor_zoneing_reverse_lookups(ctx)
+        except Exception as err:
+            print(f"Error: {err}")
+            sys.exit(1)
 
 
 ### Start up
