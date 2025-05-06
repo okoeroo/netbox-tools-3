@@ -41,10 +41,14 @@ def powerdns_recursor_zonefile(ctx):
         if prefix_obj['family']['value'] != 4:
             continue
 
-        # TODO
-        # Only focus on Home
-        if prefix_obj['site']['slug'] != 'home':
-            continue
+        # TODO HACK - Only focus on Home
+        # Test for scope or site is a compatiblity between 4.x and 3.x.
+        if 'scope' in prefix_obj:
+            if prefix_obj['scope']['slug'] != 'home':
+                continue
+        elif 'site' in prefix_obj:
+            if prefix_obj['site']['slug'] != 'home':
+                continue
 
         # Query all IP addresses in the VRF. From each, fetch the associated interface and its MAC
         # Extract all IP addresses in the VRF
