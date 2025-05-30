@@ -2,7 +2,7 @@
 
 
 class DNSMasq_DHCP_Generic_Switchable:
-    def __init__(self, name, value):
+    def __init__(self, name: str, value: str):
         self.name = name
         self.value = value
 
@@ -14,12 +14,12 @@ class DNSMasq_DHCP_Generic_Switchable:
 
 
 class DNSMasq_DHCP_Option:
-    def __init__(self, option, value):
+    def __init__(self, option: str, value: str):
         scope = None
         self.option = option
         self.value = value
 
-    def __init__(self, scope, option, value):
+    def __init__(self, scope: str, option: str, value: str):
         self.scope = scope
         self.option = option
         self.value = value
@@ -34,14 +34,17 @@ class DNSMasq_DHCP_Option:
         return self.value
 
     def get_comment(self):
-        if self.get_option() == "3":
-            return "# Default Gateway"
-        elif self.get_option() == "6":
-            return "# Default DNS"
-        elif self.get_option() == "42":
-            return "# Default NTP"
-        else:
-            return ""
+        match self.get_option():
+            case "3":
+                return "# Default Gateway"    
+            case "6":
+                return "# Default DNS"
+            case "42":
+                return "# Default NTP"
+            case "119":
+                return "# Domain Search"
+            case _:
+                return ""
 
     def __add__(self, o):
         return self.get_str() + o
@@ -116,7 +119,7 @@ class DNSMasq_DHCP_Range:
 
 
 class DNSMasq_DHCP_Host:
-    def __init__(self, mac_address, hostname, ip_address, lease_time):
+    def __init__(self, mac_address: str, hostname: str, ip_address, lease_time):
         scope = None
         self.mac_address = mac_address
         self.hostname = hostname
@@ -188,22 +191,22 @@ class DNSMasq_DHCP_Section:
     def set_vlan_id(self, vlan_id):
         self.vlan_id = vlan_id
 
-    def set_vlan_name(self, vlan_name):
+    def set_vlan_name(self, vlan_name: str):
         self.vlan_name = vlan_name
 
-    def set_vrf_name(self, vrf_name):
+    def set_vrf_name(self, vrf_name: str):
         self.vrf_name = vrf_name
 
     def set_prefix(self, prefix):
         self.prefix = prefix
 
-    def append_dhcp_option(self, dhcp_option):
+    def append_dhcp_option(self, dhcp_option: DNSMasq_DHCP_Option):
         self.dhcp_options.append(dhcp_option)
 
-    def append_dhcp_range(self, dhcp_range):
+    def append_dhcp_range(self, dhcp_range: DNSMasq_DHCP_Range):
         self.dhcp_ranges.append(dhcp_range)
 
-    def append_dhcp_host(self, dhcp_host):
+    def append_dhcp_host(self, dhcp_host: DNSMasq_DHCP_Host):
         self.dhcp_hosts.append(dhcp_host)
 
 
@@ -253,10 +256,10 @@ class DNSMasq_DHCP_Config:
         self.dhcp_config_generic_switches = []
         self.dhcp_config_sections = []
 
-    def append_to_dhcp_config_generic_switches(self, obj):
+    def append_to_dhcp_config_generic_switches(self, obj: DNSMasq_DHCP_Generic_Switchable):
         self.dhcp_config_generic_switches.append(obj)
 
-    def append_to_dhcp_config_sections(self, obj):
+    def append_to_dhcp_config_sections(self, obj: DNSMasq_DHCP_Section):
         self.dhcp_config_sections.append(obj)
 
     def print(self):

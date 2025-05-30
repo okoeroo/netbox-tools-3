@@ -88,7 +88,7 @@ def get_interface_name_from_ipaddresses_obj(ip_addr_obj: dict):
     return ip_addr_obj['assigned_object']['name']
 
 
-def get_dhcp_host_dict_from_vrf(ctx: dict, vrf_id: int):
+def get_dhcp_host_dict_from_vrf(ctx: dict, vrf_id: int) -> list:
     parameters = {}
     parameters['vrf_id'] = vrf_id
     q_ip_addrs = netboxers_helpers.query_netbox(ctx, "ipam/ip-addresses/", parameters)
@@ -108,7 +108,7 @@ def get_dhcp_host_dict_from_vrf(ctx: dict, vrf_id: int):
 
 ## Based on the mac address fetch a device.
 ## The device can be a virtual machine or device
-def fetch_devices_from_mac_address(ctx: str, mac_address: str):
+def fetch_devices_from_mac_address(ctx: str, mac_address: str) -> dict:
     parameters = {}
     parameters['mac_address'] = mac_address
 
@@ -123,11 +123,11 @@ def fetch_devices_from_mac_address(ctx: str, mac_address: str):
     return devices
 
 
-def get_vrf_vlan_name_from_prefix_obj(prefix_obj: dict):
+def get_vrf_vlan_name_from_prefix_obj(prefix_obj: dict) -> str:
     return prefix_obj['vrf']['name'] + "_vlan_" + str(prefix_obj['vlan']['vid'])
 
 
-def assemble_dhcp_host_dict_from_ip_addr_obj(ctx: dict, ip_addr_obj: dict):
+def assemble_dhcp_host_dict_from_ip_addr_obj(ctx: dict, ip_addr_obj: dict) -> dict:
     res_tup = {}
 
     res_tup['ip_addr'] = get_ipaddress_from_ipaddresses_obj(ip_addr_obj)

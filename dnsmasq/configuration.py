@@ -127,6 +127,12 @@ def argparsing(ctx):
                         default=None,
                         # default="koeroo.lan",
                         type=str)
+    parser.add_argument("-dds", "--dhcp-domain-search",
+                        dest='dhcp_domain_search',
+                        help="DHCP Domain Search.",
+                        default=None,
+                        # default="koeroo.lan",
+                        type=str)
     parser.add_argument("-dbf", "--dhcp-boot-filename",
                         dest='dhcp_boot_filename',
                         help="DHCP PXE boot filename.",
@@ -162,6 +168,7 @@ def argparsing(ctx):
     ctx['args_lease_file']                = args.dhcp_lease_file
     ctx['args_authoritive']               = args.dhcp_authoritive
     ctx['args_default_domain']            = args.dhcp_default_domain
+    ctx['args_domain_search']             = args.dhcp_domain_search
     ctx['args_default_ntp_server']        = args.dhcp_default_ntp_server
     ctx['args_dhcp_boot_filename']        = args.dhcp_boot_filename
     ctx['args_dhcp_boot_servername']      = args.dhcp_boot_servername

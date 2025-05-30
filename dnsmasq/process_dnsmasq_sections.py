@@ -5,7 +5,7 @@ import ipaddress
 from netboxers import netboxers_helpers, netboxers_queries
 from netboxers.models.dnsmasq_dhcp import DNSMasq_DHCP_Section, DNSMasq_DHCP_Option, DNSMasq_DHCP_Range, DNSMasq_DHCP_Host
 
-# TODO: Change set_site to set_scope
+
 def netbox_generate_dnsmasq_dhcp_section_header_info(prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
     # Record the DNSMasq_DHCP_Section info
     if 'scope' in prefix_obj:
@@ -141,6 +141,23 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_ntp(ctx, prefix_obj, dnsmasq
     return dnsmasq_dhcp_section
 
 
+# Get Domain search from the configuration file, which is a generich setting at the moment.
+def netbox_process_prefix_into_dnsmasq_dhcp_section_domain_search(
+        ctx: dict,
+        prefix_obj: dict, 
+        dnsmasq_dhcp_section: DNSMasq_DHCP_Section) -> DNSMasq_DHCP_Section:
+
+    # Check if there is a specific domain search in the config file, which is a generic setting
+    if 'dnsmasq_dhcp_domain_search' in ctx and ctx['dnsmasq_dhcp_domain_search']:
+        # Record the domain search domain
+        dnsmasq_dhcp_section.append_dhcp_option(
+                DNSMasq_DHCP_Option(
+                    netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
+                    "119", ctx['dnsmasq_dhcp_domain_search']))
+
+    return dnsmasq_dhcp_section
+
+
 def netbox_process_prefix_into_dnsmasq_dhcp_section_range(ctx, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
     # Print dhcp-range
     ip_network = ipaddress.ip_network(prefix_obj['prefix'])
@@ -192,6 +209,9 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section(ctx, prefix_obj) -> DNSMasq_
 
     # Add NTP server config
     dnsmasq_dhcp_section = netbox_process_prefix_into_dnsmasq_dhcp_section_ntp(ctx, prefix_obj, dnsmasq_dhcp_section)
+
+    # Add Domain search config
+    dnsmasq_dhcp_section = netbox_process_prefix_into_dnsmasq_dhcp_section_domain_search(ctx, prefix_obj, dnsmasq_dhcp_section)
 
     # Add IP Range of the DHCP pool
     dnsmasq_dhcp_section = netbox_process_prefix_into_dnsmasq_dhcp_section_range(ctx, prefix_obj, dnsmasq_dhcp_section)
