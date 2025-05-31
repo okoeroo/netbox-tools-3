@@ -8,9 +8,8 @@ class DNSMasq_DHCP_Generic_Switchable:
     def __str__(self) -> str:
         if self.value is None:
             return self.name
-        elif self.value is not None:
-            return self.name + "=" + self.value
-        return ""
+        else:
+            return f"{self.name}={self.value}"
 
 
 class DNSMasq_DHCP_Option:
@@ -19,16 +18,16 @@ class DNSMasq_DHCP_Option:
         self.option = option
         self.value = value
 
-    def get_scope(self):
+    def get_scope(self) -> str:
         return self.scope
 
-    def get_option(self):
+    def get_option(self) -> str:
         return self.option
 
-    def get_value(self):
+    def get_value(self) -> str | IPv4Address | IPv6Address:
         return self.value
 
-    def get_comment(self):
+    def get_comment(self) -> str:
         match self.get_option():
             case "3":
                 return "# Default Gateway"    
@@ -47,30 +46,32 @@ class DNSMasq_DHCP_Option:
     def __str__(self):
         return self.get_str()
 
-    def get_str(self):
+    def get_str(self) -> str:
         res = []
 
         if self.get_scope() is not None:
-            res.append(str(self.get_scope()))
+            res.append(self.get_scope())
 
-        res.append(str(self.get_option()))
+        res.append(self.get_option())
         res.append(str(self.get_value()))
 
-        return "dhcp-option=" + \
-                ",".join(res) + \
-                "  " + \
-                str(self.get_comment())
+        return f"dhcp-option={",".join(res)}  {self.get_comment()}"
 
 
 class DNSMasq_DHCP_Range:
-    def __init__(self, scope, range_min, range_max, netmask, lease_time):
+    def __init__(self, 
+                 scope: str, 
+                 range_min: IPv4Address | IPv6Address, 
+                 range_max: IPv4Address | IPv6Address, 
+                 netmask: IPv4Address | IPv6Address, 
+                 lease_time: str):
         self.scope = scope
         self.range_min = range_min
         self.range_max = range_max
         self.netmask = netmask
         self.lease_time = lease_time
 
-    def get_scope(self):
+    def get_scope(self) -> str:
         return self.scope
 
     def get_range_min(self):
@@ -102,12 +103,16 @@ class DNSMasq_DHCP_Range:
         res.append(str(self.get_netmask()))
         res.append(str(self.get_lease_time()))
 
-        return "dhcp-range=" + \
-                ",".join(res)
+        return f"dhcp-range={",".join(res)}"
 
 
 class DNSMasq_DHCP_Host:
-    def __init__(self, scope, mac_address, hostname, ip_address, lease_time):
+    def __init__(self, 
+                 scope: str, 
+                 mac_address: str, 
+                 hostname: str, 
+                 ip_address: str | IPv4Address | IPv6Address, 
+                 lease_time: str):
         self.scope = scope
         self.mac_address = mac_address
         self.hostname = hostname
@@ -146,8 +151,7 @@ class DNSMasq_DHCP_Host:
         res.append(str(self.get_ip_address()))
         res.append(str(self.get_lease_time()))
 
-        return "dhcp-host=" + \
-                ",".join(res)
+        return f"dhcp-host={",".join(res)}"
 
 
 class DNSMasq_DHCP_Section:
@@ -159,9 +163,9 @@ class DNSMasq_DHCP_Section:
         self.vrf_name = None
         self.prefix = None
 
-        self.dhcp_options = []
-        self.dhcp_ranges = []
-        self.dhcp_hosts = []
+        self.dhcp_options: list[DNSMasq_DHCP_Option] = []
+        self.dhcp_ranges: list[DNSMasq_DHCP_Range] = []
+        self.dhcp_hosts: list[DNSMasq_DHCP_Host] = []
 
     def set_scope(self, scope):
         self.scope = scope
@@ -202,23 +206,23 @@ class DNSMasq_DHCP_Section:
         res = []
 
         if self.scope is not None:
-            res.append("### Scope:   " + self.scope)
+            res.append(f"### Scope:   {self.scope}")
 
         if self.role is not None:
-            res.append("### Role:    " + self.role)
+            res.append(f"### Role:    {self.role}")
 
         if self.vlan_id is not None and self.vlan_name is not None:
-            res.append("### Vlan:    " + self.vlan_name + " with ID: " + str(self.vlan_id))
+            res.append(f"### Vlan:    {self.vlan_name} with ID: {str(self.vlan_id)}")
         elif self.vlan_id is not None:
-            res.append("### Vlan ID: " + str(self.vlan_id))
+            res.append(f"### Vlan ID: {str(self.vlan_id)}")
         elif self.vlan_name is not None:
-            res.append("### Vlan:    " + self.vlan_name)
+            res.append(f"### Vlan:    {self.vlan_name}")
 
         if self.vrf_name is not None:
-            res.append("### VRF:     " + self.vrf_name)
+            res.append(f"### VRF:     {self.vrf_name}")
 
         if self.prefix is not None:
-            res.append("### Prefix:  " + self.prefix)
+            res.append(f"### Prefix:  {self.prefix}")
 
         return "\n".join(res)
 
