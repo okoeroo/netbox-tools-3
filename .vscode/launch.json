@@ -8,8 +8,8 @@
             "name": "Python: Current File",
             "type": "debugpy",
             "request": "launch",
-           "program": "netbox-2-dnsmasq-dhcp.py",
-            // "program": "netbox-2-powerdns-rec.py",
+            // "program": "netbox-2-dnsmasq-dhcp.py",
+            "program": "netbox-2-powerdns-rec.py",
             "args": ["-c", "netbox.config"],
             "console": "integratedTerminal",
             "justMyCode": true

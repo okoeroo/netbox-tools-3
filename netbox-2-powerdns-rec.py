@@ -33,7 +33,7 @@ def powerdns_recursor_zonefile(ctx):
 
 
     # Query for prefixes and ranges
-    q = netboxers_helpers.query_netbox(ctx: dict, "ipam/prefixes/")
+    q = netboxers_helpers.query_netbox(ctx, "ipam/prefixes/")
 
     for prefix_obj in q['results']:
 
@@ -52,7 +52,9 @@ def powerdns_recursor_zonefile(ctx):
 
         # Query all IP addresses in the VRF. From each, fetch the associated interface and its MAC
         # Extract all IP addresses in the VRF
-        ip_addrs_in_vrf = netboxers_queries.get_dhcp_host_dict_from_vrf(ctx: dict, prefix_obj['vrf']['id'])
+        ip_addrs_in_vrf = netboxers_queries.get_dhcp_host_dict_from_vrf(ctx, prefix_obj['vrf']['id'])
+        if ip_addrs_in_vrf is None:
+            continue
 
         # Run through the tupples
         for tupple in ip_addrs_in_vrf:
@@ -84,7 +86,7 @@ def powerdns_recursor_zonefile(ctx):
                         file=sys.stderr)
                 continue
 
-            devices = netboxers_queries.fetch_devices_from_mac_address(ctx: dict, tupple['mac_address'])
+            devices = netboxers_queries.fetch_devices_from_mac_address(ctx, tupple['mac_address'])
             if devices is None:
                 print("No device found based on MAC address:", tupple['mac_address'],
                         file=sys.stderr)
@@ -162,13 +164,13 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 
 
     # Query for prefixes and ranges
-    q = netboxers_helpers.query_netbox(ctx: dict, "ipam/ip-addresses/")
+    q = netboxers_helpers.query_netbox(ctx, "ipam/ip-addresses/")
 
     for ip_addr_obj in q['results']:
         tupple = {}
 
         # If the associated device or virtual machine is not active, skip
-        status = netboxers_queries.get_status_of_devvm_from_ipaddresses_obj(ctx: dict, ip_addr_obj)
+        status = netboxers_queries.get_status_of_devvm_from_ipaddresses_obj(ctx, ip_addr_obj)
         if status != 'active':
             print(f"skipping {ip_addr_obj['address']} because the device associated to the IP address is not active.")
             continue

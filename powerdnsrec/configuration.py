@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import argparse
 import configparser
 import errno
@@ -135,8 +136,8 @@ def parse_config(ctx):
 
     config.read(ctx['args_configfile'])
 
-    ctx = parse_config_section(ctx: dict, config, 'generic')
-    ctx = parse_config_section(ctx: dict, config, 'powerdns_rec')
+    ctx = parse_config_section(ctx, config, 'generic')
+    ctx = parse_config_section(ctx, config, 'powerdns_rec')
 
     return ctx
 
