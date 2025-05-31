@@ -59,7 +59,7 @@ def get_status_of_devvm_from_ipaddresses_obj(ctx: dict, ip_addr_obj: dict):
         vm = netboxers_helpers.query_netbox(ctx, obj['virtual_machine']['url'])
         return vm['status']['value']
     else:
-        raise "Assigned object is not a device nor a virtual_machine."
+        raise ValueError("Assigned object is not a device nor a virtual_machine.")
 
 
 def get_hostname_from_ipaddresses_obj(ip_addr_obj: dict):
@@ -88,7 +88,7 @@ def get_interface_name_from_ipaddresses_obj(ip_addr_obj: dict):
     return ip_addr_obj['assigned_object']['name']
 
 
-def get_dhcp_host_dict_from_vrf(ctx: dict, vrf_id: int) -> list:
+def get_dhcp_host_dict_from_vrf(ctx: dict, vrf_id: int) -> list | None:
     parameters = {}
     parameters['vrf_id'] = vrf_id
     q_ip_addrs = netboxers_helpers.query_netbox(ctx, "ipam/ip-addresses/", parameters)
@@ -108,7 +108,7 @@ def get_dhcp_host_dict_from_vrf(ctx: dict, vrf_id: int) -> list:
 
 ## Based on the mac address fetch a device.
 ## The device can be a virtual machine or device
-def fetch_devices_from_mac_address(ctx: str, mac_address: str) -> dict:
+def fetch_devices_from_mac_address(ctx: dict, mac_address: str) -> dict | None:
     parameters = {}
     parameters['mac_address'] = mac_address
 

@@ -4,6 +4,8 @@ import os
 import pprint
 import re
 import ipaddress
+import dns.rdataclass
+from dns import rdataclass
 import requests
 import dns
 
@@ -20,7 +22,7 @@ def test_write_to_ddo_fh(ctx: dict):
         return
 
 
-def write_to_ddo_fh(ctx: dict, s: str):
+def write_to_ddo_fh(ctx: dict, s: str | None):
     # Truncate file
     if s is None and ctx['dnsmasq_dhcp_output_file'] is not None:
         open(ctx['dnsmasq_dhcp_output_file'], 'w').close()
@@ -31,7 +33,10 @@ def write_to_ddo_fh(ctx: dict, s: str):
         print(s)
     else:
         with open(ctx['dnsmasq_dhcp_output_file'], 'a') as the_file:
-            the_file.write(s + os.linesep)
+            if s is None:
+                the_file.write(os.linesep)
+            else:
+                the_file.write(s + os.linesep)
 
 
 def normalize_name(name: str):
@@ -56,7 +61,7 @@ def strip_query(ctx: dict, query: str):
 
     return query
 
-def query_netbox_call(ctx: str, query: str, req_parameters: dict = None):
+def query_netbox_call(ctx: dict, query: str, req_parameters: dict | None = None):
     if not 'http_session_handle' in ctx:
         ctx['http_session_handle'] = requests.Session()
 
@@ -85,7 +90,7 @@ def query_netbox_call(ctx: str, query: str, req_parameters: dict = None):
     # Results retrieved
     return get_req.json()
 
-def query_netbox(ctx: dict, query: str, req_parameters: dict = None):
+def query_netbox(ctx: dict, query: str, req_parameters: dict | None = None):
 
     # Results retrieved
     response = query_netbox_call(ctx, query, req_parameters)
@@ -108,10 +113,10 @@ def query_netbox(ctx: dict, query: str, req_parameters: dict = None):
 
 def add_rr_to_zone(ctx: dict, zone, rr_obj):
     if 'name' not in rr_obj:
-        raise "rr_obj missing name"
+        raise ValueError("rr_obj missing name")
 
     if 'type' not in rr_obj:
-        raise "rr_obj missing type"
+        raise ValueError("rr_obj missing type")
 
     if 'ttl' not in rr_obj:
         rr_obj['ttl'] = 86400
@@ -121,7 +126,7 @@ def add_rr_to_zone(ctx: dict, zone, rr_obj):
     # A
     if rr_obj['type'] == 'A': 
         if 'name' not in rr_obj or 'type' not in rr_obj or 'data' not in rr_obj:
-            raise "rr_obj missing elements for A record"
+            raise ValueError("rr_obj missing elements for A record")
 
         rdtype = dns.rdatatype._by_text.get(rr_obj['type'])
         rdataset = zone.find_rdataset(rr_obj['name'], rdtype=rdtype, create=True)
@@ -132,7 +137,7 @@ def add_rr_to_zone(ctx: dict, zone, rr_obj):
     # PTR
     if rr_obj['type'] == 'PTR': 
         if 'name' not in rr_obj or 'type' not in rr_obj or 'data' not in rr_obj:
-            raise "rr_obj missing elements for A record"
+            raise ValueError("rr_obj missing elements for A record")
 
         rdtype = dns.rdatatype._by_text.get(rr_obj['type'])
         rdataset = zone.find_rdataset(rr_obj['name'], rdtype=rdtype, create=True)
@@ -143,7 +148,7 @@ def add_rr_to_zone(ctx: dict, zone, rr_obj):
     # CNAME
     if rr_obj['type'] == 'CNAME': 
         if 'name' not in rr_obj or 'type' not in rr_obj or 'data' not in rr_obj:
-            raise "rr_obj missing elements for CNAME record"
+            raise ValueError("rr_obj missing elements for CNAME record")
 
         rdtype = dns.rdatatype._by_text.get(rr_obj['type'])
         rdataset = zone.find_rdataset(rr_obj['name'], rdtype=rdtype, create=True)
@@ -155,7 +160,7 @@ def add_rr_to_zone(ctx: dict, zone, rr_obj):
     if rr_obj['type'] == 'SOA':
         if 'name' not in rr_obj or 'type' not in rr_obj or \
             'mname' not in rr_obj or 'rname' not in rr_obj:
-            raise "rr_obj missing elements for SOA record"
+            raise ValueError("rr_obj missing elements for SOA record")
 
         rdtype = dns.rdatatype._by_text.get(rr_obj['type'])
         rdataset = zone.find_rdataset(rr_obj['name'], rdtype=rdtype, create=True)

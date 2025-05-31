@@ -30,7 +30,7 @@ def netbox_generate_dnsmasq_dhcp_section_header_info(prefix_obj, dnsmasq_dhcp_se
 
 
 # Get default gateway for the prefix
-def netbox_process_prefix_into_dnsmasq_dhcp_section_gateway(ctx, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
+def netbox_process_prefix_into_dnsmasq_dhcp_section_gateway(ctx: dict, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section | None:
     # Check if there is a specific prefix with gateway in the config file
     if 'prefixes' in ctx and \
         prefix_obj['prefix'] in ctx['prefixes'] and \
@@ -64,7 +64,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_gateway(ctx, prefix_obj, dns
 
 
 # Get DNS server configuration for the prefix
-def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
+def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx: dict, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section | None:
     # Override from config or args, or fetch the config from netbox
     if 'dnsmasq_dhcp_override_dns_server' in ctx and ctx['dnsmasq_dhcp_override_dns_server'] is not None:
         default_dnsname_ip_addr = ctx['dnsmasq_dhcp_override_dns_server']
@@ -102,8 +102,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx, prefix_obj, dnsmasq
     # Write DNS server based on gateway information
     if default_gateway_ip_addr is not None:
         # Get DNS from the default gateway record
-        default_dnsname_ip_addr = netboxers_queries.get_dns_host_from_ip_address(ctx, \
-            default_gateway_ip_addr_obj)
+        default_dnsname_ip_addr = netboxers_queries.get_dns_host_from_ip_address(ctx, default_gateway_ip_addr_obj)
 
         # Write DNS server
         if default_dnsname_ip_addr is not None:
@@ -118,7 +117,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx, prefix_obj, dnsmasq
 
 
 # Get ntp from the configuration file for the prefix
-def netbox_process_prefix_into_dnsmasq_dhcp_section_ntp(ctx, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
+def netbox_process_prefix_into_dnsmasq_dhcp_section_ntp(ctx: dict, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
     # Check if there is a specific prefix with ntp in the config file for its prefix
     if 'prefixes' in ctx and prefix_obj['prefix'] in ctx['prefixes'] and \
         'ntp' in ctx['prefixes'][prefix_obj['prefix']]:
@@ -158,7 +157,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_domain_search(
     return dnsmasq_dhcp_section
 
 
-def netbox_process_prefix_into_dnsmasq_dhcp_section_range(ctx, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
+def netbox_process_prefix_into_dnsmasq_dhcp_section_range(ctx: dict, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
     # Print dhcp-range
     ip_network = ipaddress.ip_network(prefix_obj['prefix'])
 
@@ -176,8 +175,10 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_range(ctx, prefix_obj, dnsma
 
 # Query all IP addresses in the VRF. From each, fetch the associated interface and its MAC
 # Extract all IP addresses in the VRF
-def netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
+def netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx: dict, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section | None:
     dhcp_host_tuples = netboxers_queries.get_dhcp_host_dict_from_vrf(ctx, prefix_obj['vrf']['id'])
+    if not dhcp_host_tuples:
+        return None
 
     for tup in dhcp_host_tuples:
         # When Device is set to Offline, skip it
@@ -195,7 +196,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx, prefix_obj, dnsma
     return dnsmasq_dhcp_section
 
 
-def netbox_process_prefix_into_dnsmasq_dhcp_section(ctx, prefix_obj) -> DNSMasq_DHCP_Section:
+def netbox_process_prefix_into_dnsmasq_dhcp_section(ctx: dict, prefix_obj) -> DNSMasq_DHCP_Section | None:
     dnsmasq_dhcp_section = DNSMasq_DHCP_Section()
 
     # Generate DNSMasq DHCP Section header information

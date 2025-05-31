@@ -25,7 +25,7 @@ def netbox_process_prefixes_into_dnsmasq_dhcp_config(ctx: dict, dnsmasq_dhcp_con
         # Process the prefix. Output is a DNSMasq_DHCP_Section object
         dnsmasq_dhcp_section = process_dnsmasq_sections.netbox_process_prefix_into_dnsmasq_dhcp_section(ctx, prefix_obj)
         if dnsmasq_dhcp_section is None:
-            raise f"Something happend processing the prefix {prefix_obj['prefix']}"
+            raise ValueError(f"Something happend processing the prefix {prefix_obj['prefix']}")
 
         # Record section to config
         dnsmasq_dhcp_config.append_to_dhcp_config_sections(dnsmasq_dhcp_section)

@@ -1,25 +1,20 @@
-#!/usr/bin/env python3
-
+from ipaddress import IPv4Address, IPv6Address
 
 class DNSMasq_DHCP_Generic_Switchable:
-    def __init__(self, name: str, value: str):
+    def __init__(self, name: str, value: str | None):
         self.name = name
         self.value = value
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.value is None:
             return self.name
         elif self.value is not None:
             return self.name + "=" + self.value
+        return ""
 
 
 class DNSMasq_DHCP_Option:
-    def __init__(self, option: str, value: str):
-        scope = None
-        self.option = option
-        self.value = value
-
-    def __init__(self, scope: str, option: str, value: str):
+    def __init__(self, scope: str, option: str, value: str | IPv4Address | IPv6Address):
         self.scope = scope
         self.option = option
         self.value = value
@@ -68,13 +63,6 @@ class DNSMasq_DHCP_Option:
 
 
 class DNSMasq_DHCP_Range:
-    def __init__(self, range_min, range_max, netmask, lease_time):
-        scope = None
-        self.range_min = range_min
-        self.range_max = range_max
-        self.netmask = netmask
-        self.lease_time = lease_time
-
     def __init__(self, scope, range_min, range_max, netmask, lease_time):
         self.scope = scope
         self.range_min = range_min
@@ -119,13 +107,6 @@ class DNSMasq_DHCP_Range:
 
 
 class DNSMasq_DHCP_Host:
-    def __init__(self, mac_address: str, hostname: str, ip_address, lease_time):
-        scope = None
-        self.mac_address = mac_address
-        self.hostname = hostname
-        self.ip_address = ip_address
-        self.lease_time = lease_time
-
     def __init__(self, scope, mac_address, hostname, ip_address, lease_time):
         self.scope = scope
         self.mac_address = mac_address

@@ -209,7 +209,7 @@ def parse_config_prefixes(ctx, config):
     return ctx
 
 
-def parse_config(ctx):
+def parse_config(ctx: dict) -> dict:
     config = configparser.ConfigParser()
 
     if not os.path.isfile(ctx['args_configfile']):

@@ -111,7 +111,7 @@ def argparsing(ctx):
 
 
 
-def parse_config_section(ctx, config, section):
+def parse_config_section(ctx: dict, config, section):
     if section not in config.sections():
         print(f"Warning: Configuration file does not have a \"{section}\" section")
         return ctx
@@ -135,8 +135,8 @@ def parse_config(ctx):
 
     config.read(ctx['args_configfile'])
 
-    ctx = parse_config_section(ctx, config, 'generic')
-    ctx = parse_config_section(ctx, config, 'powerdns_rec')
+    ctx = parse_config_section(ctx: dict, config, 'generic')
+    ctx = parse_config_section(ctx: dict, config, 'powerdns_rec')
 
     return ctx
 
