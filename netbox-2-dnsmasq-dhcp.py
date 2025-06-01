@@ -2,8 +2,9 @@
 
 import sys
 
-from dnsmasq import configuration, process_prefixes_to_dnsmasq
-from netboxers import netboxers_helpers
+from dnsmasq.process_prefixes_to_dnsmasq import netbox_to_dnsmasq_dhcp_config
+from dnsmasq.configuration import argparsing, parse_config, sanity_checks
+from netboxers.netboxers_helpers import get_ctx, test_write_to_ddo_fh
 from netboxers.models.dnsmasq_dhcp import *
 
 
@@ -11,14 +12,14 @@ from netboxers.models.dnsmasq_dhcp import *
 def main(ctx: dict):
     try:
         # Test if writing is possible of results
-        netboxers_helpers.test_write_to_ddo_fh(ctx)
+        test_write_to_ddo_fh(ctx)
     except FileNotFoundError:
         print(f"Error: could not write to \'{ctx['dnsmasq_dhcp_output_file']}\'", file=sys.stderr)
         return
 
     print("Netbox to DNSMasq DHCP config")
     try:
-        process_prefixes_to_dnsmasq.netbox_to_dnsmasq_dhcp_config(ctx)
+        netbox_to_dnsmasq_dhcp_config(ctx)
     except Exception as err:
         print(f"Error: {err}")
         sys.exit(1)
@@ -27,12 +28,12 @@ def main(ctx: dict):
 ### Start up
 if __name__ == "__main__":
     # initialize
-    ctx = netboxers_helpers.get_ctx()
-    ctx = configuration.argparsing(ctx)
-    ctx = configuration.parse_config(ctx)
+    ctx = get_ctx()
+    ctx = argparsing(ctx)
+    ctx = parse_config(ctx)
 
     # Checks
-    if not configuration.sanity_checks(ctx):
+    if not sanity_checks(ctx):
         sys.exit(1)
 
     # Go time
