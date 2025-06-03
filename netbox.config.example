@@ -22,6 +22,11 @@ default_ntp_server = 192.168.1.2
 
 # override_dns_server = 192.168.1.2
 
+prefix_in_scope_by_tag = dnsmasq_generator
+default_gateway_per_prefix_identified_by_tag = net_default_gateway
+selected_range_in_prefix_by_tag = net_dhcp_range
+
+
 [powerdns_rec]
 zonefile = /tmp/zonefile
 zonefile_in_addr = /tmp/zonefile_in_addr

@@ -1,4 +1,45 @@
-from ipaddress import IPv4Address, IPv6Address
+
+from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network, ip_network
+
+
+class DNSMasq_DHCP_Prefix:
+    def __init__(self, data: dict):
+        self.data: dict = data
+        self.prefix: IPv4Network | IPv6Network = ip_network(self.data['prefix'], strict=True)
+    
+    def get_prefix(self) -> IPv4Network | IPv6Network:
+        return self.prefix
+
+    def get_vrf(self) -> dict | None:
+        return self.data.get('vrf')
+            
+    def get_scope(self) -> dict | None:
+        return self.data.get('scope')
+
+    def get_site(self) -> str | None:
+        if scope := self.data.get('scope'):
+            return scope['name']
+
+    def get_vlan(self) -> dict | None:
+        return self.data.get('vlan')
+
+    def get_status(self) -> dict:
+        return self.data['status']['value']
+
+    def is_active(self) -> bool:
+        return self.get_status() == 'active'
+    
+    def get_role(self) -> dict | None:
+        return self.data.get('role')
+
+    def is_pool(self) -> bool:
+        return self.data['is_pool']
+
+    def get_tags(self) -> list[str] | None:
+        tags = self.data.get('tags')
+        if not tags: return None
+        return [t.get('name') for t in tags]
+
 
 class DNSMasq_DHCP_Generic_Switchable:
     def __init__(self, name: str, value: str | None):
@@ -13,13 +54,16 @@ class DNSMasq_DHCP_Generic_Switchable:
 
 
 class DNSMasq_DHCP_Option:
-    def __init__(self, scope: str, option: str, value: str | IPv4Address | IPv6Address):
-        self.scope = scope
-        self.option = option
-        self.value = value
+    def __init__(self, prefix: DNSMasq_DHCP_Prefix, option: str, value: str):
+        if not prefix:
+            raise ValueError("DNSMasq_DHCP_Option requires a DNSMasq_DHCP_Prefix")
+            
+        self.prefix: DNSMasq_DHCP_Prefix    = prefix
+        self.option: str                    = option
+        self.value: str                     = value
 
-    def get_scope(self) -> str:
-        return self.scope
+    def get_prefix(self) -> DNSMasq_DHCP_Prefix:
+        return self.prefix
 
     def get_option(self) -> str:
         return self.option
@@ -46,13 +90,15 @@ class DNSMasq_DHCP_Option:
     def __str__(self):
         return self.get_str()
 
+    # dhcp-option=vrf_66_homelan_vlan_66,3,192.168.1.1  # Default Gateway
     def get_str(self) -> str:
         res = []
 
-        if self.get_scope() is not None:
-            res.append(self.get_scope())
+        prefix = self.get_prefix()
+        if vrf:= prefix.get_vrf():
+            res.append(vrf['name'])
 
-        res.append(self.get_option())
+        res.append(str(self.get_option()))
         res.append(str(self.get_value()))
 
         return f"dhcp-option={",".join(res)}  {self.get_comment()}"
@@ -60,19 +106,19 @@ class DNSMasq_DHCP_Option:
 
 class DNSMasq_DHCP_Range:
     def __init__(self, 
-                 scope: str, 
+                 prefix: DNSMasq_DHCP_Prefix,
                  range_min: IPv4Address | IPv6Address, 
                  range_max: IPv4Address | IPv6Address, 
                  netmask: IPv4Address | IPv6Address, 
                  lease_time: str):
-        self.scope = scope
-        self.range_min = range_min
-        self.range_max = range_max
-        self.netmask = netmask
-        self.lease_time = lease_time
+        self.prefix: DNSMasq_DHCP_Prefix = prefix
+        self.range_min: IPv4Address | IPv6Address = range_min
+        self.range_max: IPv4Address | IPv6Address = range_max
+        self.netmask: IPv4Address | IPv6Address = netmask
+        self.lease_time: str = lease_time
 
-    def get_scope(self) -> str:
-        return self.scope
+    def get_prefix(self) -> DNSMasq_DHCP_Prefix:
+        return self.prefix
 
     def get_range_min(self):
         return self.range_min
@@ -95,8 +141,9 @@ class DNSMasq_DHCP_Range:
     def get_str(self):
         res = []
 
-        if self.get_scope() is not None:
-            res.append(str(self.get_scope()))
+        prefix = self.get_prefix()
+        if vrf:= prefix.get_vrf():
+            res.append(vrf['name'])
 
         res.append(str(self.get_range_min()))
         res.append(str(self.get_range_max()))
@@ -108,19 +155,19 @@ class DNSMasq_DHCP_Range:
 
 class DNSMasq_DHCP_Host:
     def __init__(self, 
-                 scope: str, 
+                 prefix: DNSMasq_DHCP_Prefix,
                  mac_address: str, 
                  hostname: str, 
                  ip_address: str | IPv4Address | IPv6Address, 
                  lease_time: str):
-        self.scope = scope
+        self.prefix = prefix
         self.mac_address = mac_address
         self.hostname = hostname
         self.ip_address = ip_address
         self.lease_time = lease_time
 
-    def get_scope(self):
-        return self.scope
+    def get_prefix(self):
+        return self.prefix
 
     def get_mac_address(self):
         return self.mac_address
@@ -143,8 +190,9 @@ class DNSMasq_DHCP_Host:
     def get_str(self):
         res = []
 
-        if self.get_scope() is not None:
-            res.append(str(self.get_scope()))
+        prefix = self.get_prefix()
+        if vrf:= prefix.get_vrf():
+            res.append(vrf['name'])
 
         res.append(str(self.get_mac_address()))
         res.append(str(self.get_hostname()))
@@ -155,13 +203,20 @@ class DNSMasq_DHCP_Host:
 
 
 class DNSMasq_DHCP_Section:
-    def __init__(self):
-        self.scope = None
-        self.role = None
+    def __init__(self, prefix_obj: DNSMasq_DHCP_Prefix):
+        self.scope = prefix_obj.get_scope()
+        self.site = prefix_obj.get_site()
+        self.role = prefix_obj.get_role()
         self.vlan_id = None
         self.vlan_name = None
-        self.vrf_name = None
-        self.prefix = None
+        if vlan := prefix_obj.get_vlan():
+            self.vlan_id = vlan['vid']
+            self.vlan_name = vlan['display']
+
+        if vrf := prefix_obj.get_vrf():
+            self.vrf_name = vrf['name']
+
+        self.prefix = prefix_obj.get_prefix()
 
         self.dhcp_options: list[DNSMasq_DHCP_Option] = []
         self.dhcp_ranges: list[DNSMasq_DHCP_Range] = []
@@ -197,7 +252,7 @@ class DNSMasq_DHCP_Section:
 
     def get_header(self):
         # Example
-        ### Scope:   Home
+        ### Site:    Home
         ### Role:    Untagged
         ### Vlan:    66 (Home VLAN) with ID: 66
         ### VRF:     vrf_66_homelan
@@ -206,10 +261,10 @@ class DNSMasq_DHCP_Section:
         res = []
 
         if self.scope is not None:
-            res.append(f"### Scope:   {self.scope}")
+            res.append(f"### Site:    {self.site}")
 
         if self.role is not None:
-            res.append(f"### Role:    {self.role}")
+            res.append(f"### Role:    {self.role['name']}")
 
         if self.vlan_id is not None and self.vlan_name is not None:
             res.append(f"### Vlan:    {self.vlan_name} with ID: {str(self.vlan_id)}")

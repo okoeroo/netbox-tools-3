@@ -1,52 +1,134 @@
 #!/usr/bin/env python3
 
-import sys
-import ipaddress
+from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address, ip_interface
 
 from netboxers import netboxers_helpers
+from typing import Any
 
 
-# Default gateway from the VRF
-def get_net_default_gateway_from_vrf(ctx: dict, vrf_id: int):
+def netbox_query_obj(ctx: dict,
+                     query: str,
+                     **kwargs: Any) -> dict | None:
+    # Setup
+    parameters = dict(kwargs)
 
-    # Extract net_default_gateway from the VRF
-    parameters = {}
-    parameters['vrf_id'] = vrf_id
-    parameters['tag']    = 'net_default_gateway'
-    q_ip_addrs = netboxers_helpers.query_netbox(ctx, "ipam/ip-addresses/", parameters)
+    # Query
+    result = netboxers_helpers.query_netbox(ctx, query, parameters)
+    
+    # Result
+    return result
+                     
 
-    if q_ip_addrs['count'] == 0:
-        netboxers_helpers.write_to_ddo_fh(ctx, "# No default gateway available")
+# Generic query
+def netbox_query_list(ctx: dict,
+                      subquery: str,
+                      **kwargs: Any) -> dict | list | None:
+    # Setup
+    parameters = dict(kwargs)
+
+    # Query
+    results = netboxers_helpers.query_netbox(ctx, subquery, parameters)
+    
+    # Result
+    return results['results'] if results['count'] > 0 else None
+
+
+# Default gateway based on a selector.
+def get_net_default_gateway_from_prefix(ctx: dict, 
+                                        prefix: IPv4Network | IPv6Network) -> str | None:
+    """Get the ip-address found in the prefix with the tag set in the context
+    with the value for
+    'dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'
+
+    Args:
+        ctx (dict): Context
+        prefix (IPv4Network | IPv6Network): Prefix in the form 192.168.1.0/24
+
+    Returns:
+        str | None: ip address or None
+    """
+    results = netbox_query_list(ctx, 
+                           "ipam/ip-addresses/", 
+                           parent = str(prefix), 
+                           tag = ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'])
+
+    return results[0]['address'] if results else None
+
+
+def get_dns_from_net_default_gateway_from_prefix(ctx: dict,
+                                                 prefix: IPv4Network | IPv6Network) -> str | None:
+    """Get the dns-name value set to the ip-address found in the prefix with the
+    tag set in the context with the value for
+    'dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'
+
+    Args:
+        ctx (dict): Context
+        prefix (IPv4Network | IPv6Network): Prefix in the form 192.168.1.0/24
+
+    Returns:
+        str | None: ip address or None
+    """
+    results = netbox_query_list(ctx, 
+                           "ipam/ip-addresses/", 
+                           parent = str(prefix), 
+                           tag = ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'])
+
+    return results[0]['dns_name'] if results else None
+
+
+def get_range_from_prefix(ctx: dict,
+                          prefix: IPv4Network | IPv6Network) -> tuple[IPv4Address | IPv6Address, IPv4Address | IPv6Address] | None:
+    if results := netbox_query_list(ctx,
+                               "ipam/ip-ranges/",
+                               status = 'active',
+                               tag = ctx['dnsmasq_dhcp_selected_range_in_prefix_by_tag']):
+        # filter range to match by the prefix
+        for range in results:
+            begin_addr = ip_interface(range['start_address'])
+            end_addr   = ip_interface(range['end_address'])
+            
+            if begin_addr in prefix and end_addr in prefix:
+                return begin_addr.ip, end_addr.ip
+
+    # No range found that fits the prefix.
+    return None
+
+
+# dhcp-host=vrf_204_IoT_net_vlan_204,24:62:AB:48:F0:07,tasmota_switch_4_wlan0,192.168.204.104,90m
+def get_hosts_from_prefix(ctx: dict,
+                          prefix: IPv4Network | IPv6Network) -> list[tuple] | None:
+
+    hosts_list: list[tuple] = []
+                          
+    # From IP addr go to assigned_object: interface['url'] for interface object. 
+    ip_addrs_in_prefix = netbox_query_list(ctx, 
+                                           "ipam/ip-addresses/", 
+                                           parent = str(prefix),
+                                           status = 'active')
+    if not ip_addrs_in_prefix:
         return None
-    else:
-        return q_ip_addrs['results'][0]
+        
+    if ip_addrs_in_prefix := netbox_query_list(ctx, 
+                                          "ipam/ip-addresses/", 
+                                          parent = str(prefix),
+                                          status = 'active'):
 
-# Grab DNS host based on the DNS configured on the default gateway
-# host of a VRF
-# Assuming this variable is filled
-def get_dns_host_from_ip_address(ctx: dict, ip_addr_obj):
+        for ip_addr in ip_addrs_in_prefix:
+            if assigned_object := ip_addr.get('assigned_object'):
+                if assigned_object_url := assigned_object.get('url'):
+                    stripped_url = assigned_object_url.split("/api/", 1)[1]
 
-    if ip_addr_obj['dns_name'] is not None and \
-        len(ip_addr_obj['dns_name']) > 0:
+                    interface_obj = netbox_query_obj(ctx, stripped_url)
+                    if interface_obj:
+                        mac_addr = interface_obj.get('mac_address')
+                        dev_name = interface_obj['device']['name'] if interface_obj.get('device') else interface_obj['virtual_machine']['name']
+                        if_name  = interface_obj['name']
+                        ip       = ip_interface(ip_addr['address']).ip
 
-        default_dnsname_ip_addr = \
-            ipaddress.ip_address(ip_addr_obj['dns_name'])
-        return default_dnsname_ip_addr
-    else:
-        return None
+                        tup = (mac_addr, dev_name, if_name, ip)
+                        hosts_list.append(tup)
 
-def get_ipaddress_from_ipaddresses_obj(ip_addr_obj: dict):
-    return str(ipaddress.ip_address(ip_addr_obj['address'].split("/")[0]))
-
-def get_network_address_from_ipaddresses_obj(ip_addr_obj: dict):
-    return str(ipaddress.ip_network(ip_addr_obj['address'], strict=False))
-
-
-def get_macaddress_from_ipaddresses_obj(ctx: dict, ip_addr_obj: dict):
-
-    # Get MAC from interface object
-    interface_obj = netboxers_helpers.query_netbox(ctx, ip_addr_obj['assigned_object']['url'])
-    return interface_obj['mac_address']
+        return hosts_list
 
 
 def get_status_of_devvm_from_ipaddresses_obj(ctx: dict, ip_addr_obj: dict):
@@ -61,49 +143,6 @@ def get_status_of_devvm_from_ipaddresses_obj(ctx: dict, ip_addr_obj: dict):
     else:
         raise ValueError("Assigned object is not a device nor a virtual_machine.")
 
-
-def get_hostname_from_ipaddresses_obj(ip_addr_obj: dict):
-    if 'assigned_object' not in ip_addr_obj:
-        return "no_assigned_object"
-
-    try:
-        if 'device' in ip_addr_obj['assigned_object']:
-            return ip_addr_obj['assigned_object']['device']['name']
-        elif 'virtual_machine' in ip_addr_obj['assigned_object']:
-            return ip_addr_obj['assigned_object']['virtual_machine']['name']
-        else:
-            return "undefined"
-
-    except Exception as e:
-        print(str(e))
-        netboxers_helpers.pp(ip_addr_obj)
-        sys.exit(1)
-
-
-def get_interface_name_from_ipaddresses_obj(ip_addr_obj: dict):
-    if 'assigned_object' not in ip_addr_obj:
-        return "no_assigned_object"
-
-    # Get interface name
-    return ip_addr_obj['assigned_object']['name']
-
-
-def get_dhcp_host_dict_from_vrf(ctx: dict, vrf_id: int) -> list | None:
-    parameters = {}
-    parameters['vrf_id'] = vrf_id
-    q_ip_addrs = netboxers_helpers.query_netbox(ctx, "ipam/ip-addresses/", parameters)
-
-    if q_ip_addrs['count'] == 0:
-        return None
-
-    dhcp_hosts = []
-
-    # VRF scoped dhcp hosts
-    for ip_addr_obj in q_ip_addrs['results']:
-        dhcp_hosts.append(assemble_dhcp_host_dict_from_ip_addr_obj(ctx,
-                                                                   ip_addr_obj))
-
-    return dhcp_hosts
 
 
 ## Based on the mac address fetch a device.
@@ -121,29 +160,3 @@ def fetch_devices_from_mac_address(ctx: dict, mac_address: str) -> dict | None:
             return None
 
     return devices
-
-
-def get_vrf_vlan_name_from_prefix_obj(prefix_obj: dict) -> str:
-    return prefix_obj['vrf']['name'] + "_vlan_" + str(prefix_obj['vlan']['vid'])
-
-
-def assemble_dhcp_host_dict_from_ip_addr_obj(ctx: dict, ip_addr_obj: dict) -> dict:
-    res_tup = {}
-
-    res_tup['ip_addr'] = get_ipaddress_from_ipaddresses_obj(ip_addr_obj)
-    res_tup['ip_net'] = get_network_address_from_ipaddresses_obj(ip_addr_obj)
-    res_tup['mac_address'] = get_macaddress_from_ipaddresses_obj(ctx, ip_addr_obj)
-
-    # TODO
-    res_tup['status'] = get_status_of_devvm_from_ipaddresses_obj(ctx, ip_addr_obj)
-
-    res_tup['hostname'] = get_hostname_from_ipaddresses_obj(ip_addr_obj)
-    res_tup['normalized_hostname'] = netboxers_helpers.normalize_name(res_tup['hostname'])
-
-    res_tup['interface_name'] = get_interface_name_from_ipaddresses_obj(ip_addr_obj)
-    res_tup['host_iface'] = res_tup['normalized_hostname'] + "_" + res_tup['interface_name']
-    res_tup['host_iface'] = res_tup['normalized_hostname'] + "_" + res_tup['interface_name']
-
-    res_tup['ip_addr_obj'] = ip_addr_obj
-
-    return res_tup

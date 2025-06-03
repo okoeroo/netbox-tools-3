@@ -2,7 +2,32 @@
 
 from dnsmasq import process_dnsmasq_sections
 from netboxers import netboxers_helpers
-from netboxers.models.dnsmasq_dhcp import DNSMasq_DHCP_Config, DNSMasq_DHCP_Generic_Switchable
+from netboxers.models.dnsmasq_dhcp import DNSMasq_DHCP_Config, DNSMasq_DHCP_Generic_Switchable, DNSMasq_DHCP_Prefix
+
+
+def filter_processing_of_prefix(ctx: dict, prefix_obj: DNSMasq_DHCP_Prefix) -> bool:
+    """_summary_
+        This is a filter to apply to a prefix to see if it must be filtered.
+
+    Args:
+        ctx (dict): _description_
+        prefix_obj (DNSMasq_DHCP_Prefix): _description_
+
+    Returns:
+        bool: True means filter this prefix, False means don't filter.
+    """
+
+    if ctx.get('dnsmasq_dhcp_prefix_in_scope_by_tag'):
+        tags = prefix_obj.get_tags()
+        if not tags:
+            return True
+        if ctx.get('dnsmasq_dhcp_prefix_in_scope_by_tag') not in tags:
+            return True
+
+    if not prefix_obj.is_active():
+        return True
+        
+    return False
 
 
 def netbox_process_prefixes_into_dnsmasq_dhcp_config(ctx: dict, dnsmasq_dhcp_config: DNSMasq_DHCP_Config) -> DNSMasq_DHCP_Config:
@@ -10,22 +35,29 @@ def netbox_process_prefixes_into_dnsmasq_dhcp_config(ctx: dict, dnsmasq_dhcp_con
     prefixes = netboxers_helpers.query_netbox(ctx, "ipam/prefixes/")
 
     if prefixes['count'] == 0:
-        print("No prefixes found to complete")
+        raise ValueError("No prefixes found in netbox to complete")
 
-    for prefix_obj in prefixes['results']:
-        # Skip non-IPv4
-        if prefix_obj['is_pool'] != True:
+    # Select which prefixes to work on
+    ready_to_process_prefixes: list[DNSMasq_DHCP_Prefix] = []
+    for p in prefixes['results']:
+        prefix_obj = DNSMasq_DHCP_Prefix(p)
+        
+        # Filter
+        if filter_processing_of_prefix(ctx, prefix_obj):
+            print(f"Notice: skipping prefix \"{prefix_obj.get_prefix()} due to configured filter constrains.")
             continue
-
-        # Only Active Prefixes
-        if prefix_obj['status']['value'] != 'active':
-            print("Prefix {} not active, skipping.".format(prefix_obj['prefix']))
-            continue
+        else:
+            # Add to work list
+            ready_to_process_prefixes.append(prefix_obj)
+                
+    # Work on these
+    for p in ready_to_process_prefixes:
+        # Use a DNSMasq_DHCP_Prefix to create a DNSMasq_DHCP_Section
 
         # Process the prefix. Output is a DNSMasq_DHCP_Section object
-        dnsmasq_dhcp_section = process_dnsmasq_sections.netbox_process_prefix_into_dnsmasq_dhcp_section(ctx, prefix_obj)
+        dnsmasq_dhcp_section = process_dnsmasq_sections.netbox_process_prefix_into_dnsmasq_dhcp_section(ctx, p)
         if dnsmasq_dhcp_section is None:
-            raise ValueError(f"Something happend processing the prefix {prefix_obj['prefix']}")
+            raise ValueError(f"Something happend processing the prefix {p.get_prefix()}")
 
         # Record section to config
         dnsmasq_dhcp_config.append_to_dhcp_config_sections(dnsmasq_dhcp_section)
