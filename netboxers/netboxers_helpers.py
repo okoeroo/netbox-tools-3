@@ -6,7 +6,6 @@ import re
 import ipaddress
 import dns.rdataclass
 from dns import rdataclass
-import requests
 import dns
 
 
@@ -66,63 +65,6 @@ def dns_canonicalize(s: str):
 def get_ctx():
     ctx = {}
     return ctx
-
-def strip_query(ctx: dict, query: str):
-    # Pattern is base_url/api/query, all double bits should be stripped 
-
-    if query.startswith(ctx['generic_netbox_base_url'] + '/api/'):
-        return query[len(ctx['generic_netbox_base_url'] + '/api/'):]
-
-    return query
-
-def query_netbox_call(ctx: dict, query: str, req_parameters: dict | None = None):
-    if not 'http_session_handle' in ctx:
-        ctx['http_session_handle'] = requests.Session()
-
-    session = ctx['http_session_handle']
-
-    req_headers = {}
-    req_headers['Authorization'] = " ".join(["Token", ctx['generic_authkey']])
-    req_headers['Content-Type'] = "application/json"
-    req_headers['Accept'] = "application/json; indent=4"
-
-    query_stripped = strip_query(ctx, query)
-
-    if ctx['generic_verbose']:
-        print(query_stripped)
-
-    get_req = session.get('{}/api/{}'.format(ctx['generic_netbox_base_url'], query_stripped),
-                           timeout=10,
-                           headers=req_headers,
-                           params=req_parameters)
-    get_req.raise_for_status()
-
-    if ctx['generic_verbose']:
-        print(get_req.text)
-
-
-    # Results retrieved
-    return get_req.json()
-
-def query_netbox(ctx: dict, query: str, req_parameters: dict | None = None):
-
-    # Results retrieved
-    response = query_netbox_call(ctx, query, req_parameters)
-
-    # Merge response in memory
-    req_next = response # setups for loop
-    while 'next' in req_next and req_next['next'] and len(req_next['next']) > 0:
-        res_next = query_netbox_call(ctx, req_next['next'], req_parameters)
-
-        if ctx['generic_verbose']:
-            print(res_next)
-
-        for i in res_next['results']:
-            response['results'].append(i)
-
-        req_next = res_next
-
-    return response
 
 
 def add_rr_to_zone(ctx: dict, zone, rr_obj):

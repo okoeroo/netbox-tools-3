@@ -1,9 +1,68 @@
 #!/usr/bin/env python3
 
+import requests
 from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address, ip_interface
 
 from netboxers import netboxers_helpers
 from typing import Any
+
+
+def strip_query(ctx: dict, query: str):
+    # Pattern is base_url/api/query, all double bits should be stripped 
+
+    if query.startswith(ctx['generic_netbox_base_url'] + '/api/'):
+        return query[len(ctx['generic_netbox_base_url'] + '/api/'):]
+
+    return query
+
+def query_netbox_call(ctx: dict, query: str, req_parameters: dict | None = None):
+    if not 'http_session_handle' in ctx:
+        ctx['http_session_handle'] = requests.Session()
+
+    session = ctx['http_session_handle']
+
+    req_headers = {}
+    req_headers['Authorization'] = " ".join(["Token", ctx['generic_authkey']])
+    req_headers['Content-Type'] = "application/json"
+    req_headers['Accept'] = "application/json; indent=4"
+
+    query_stripped = strip_query(ctx, query)
+
+    if ctx['generic_verbose']:
+        print(query_stripped)
+
+    get_req = session.get('{}/api/{}'.format(ctx['generic_netbox_base_url'], query_stripped),
+                           timeout=10,
+                           headers=req_headers,
+                           params=req_parameters)
+    get_req.raise_for_status()
+
+    if ctx['generic_verbose']:
+        print(get_req.text)
+
+    # Results retrieved
+    return get_req.json()
+
+
+def query_netbox(ctx: dict, query: str, req_parameters: dict | None = None):
+
+    # Results retrieved
+    response = query_netbox_call(ctx, query, req_parameters)
+
+    # Merge response in memory
+    req_next = response # setups for loop
+    while 'next' in req_next and req_next['next'] and len(req_next['next']) > 0:
+        res_next = query_netbox_call(ctx, req_next['next'], req_parameters)
+
+        if ctx['generic_verbose']:
+            print(res_next)
+
+        for i in res_next['results']:
+            response['results'].append(i)
+
+        req_next = res_next
+
+    return response
 
 
 def netbox_query_obj(ctx: dict,
@@ -13,7 +72,7 @@ def netbox_query_obj(ctx: dict,
     parameters = dict(kwargs)
 
     # Query
-    result = netboxers_helpers.query_netbox(ctx, query, parameters)
+    result = query_netbox(ctx, query, parameters)
     
     # Result
     return result
@@ -27,7 +86,7 @@ def netbox_query_list(ctx: dict,
     parameters = dict(kwargs)
 
     # Query
-    results = netboxers_helpers.query_netbox(ctx, subquery, parameters)
+    results = query_netbox(ctx, subquery, parameters)
     
     # Result
     return results['results'] if results['count'] > 0 else None
@@ -138,17 +197,46 @@ def get_hosts_from_prefix(ctx: dict,
 
 
 def get_status_of_devvm_from_ipaddresses_obj(ctx: dict, ip_addr_obj: dict):
-    obj = netboxers_helpers.query_netbox(ctx, ip_addr_obj['assigned_object']['url'])
+    obj = query_netbox(ctx, ip_addr_obj['assigned_object']['url'])
 
     if 'device' in obj:
-        dev = netboxers_helpers.query_netbox(ctx, obj['device']['url'])
+        dev = query_netbox(ctx, obj['device']['url'])
         return dev['status']['value']
     elif 'virtual_machine' in obj:
-        vm = netboxers_helpers.query_netbox(ctx, obj['virtual_machine']['url'])
+        vm = query_netbox(ctx, obj['virtual_machine']['url'])
         return vm['status']['value']
     else:
         raise ValueError("Assigned object is not a device nor a virtual_machine.")
 
+
+def get_status_of_devvm_from_ipaddresses_obj_from_dev_vm_list(ctx: dict, 
+                                                              ip_addr_obj: dict, 
+                                                              devices: list[dict] | None, 
+                                                              vms: list[dict] | None) -> str | None:
+    match = None
+
+    if not ip_addr_obj.get('assigned_object'):
+        # No assignment of IP to a device.
+        return None
+
+    if devices and \
+        (assigned_object := ip_addr_obj.get('assigned_object')) and \
+        (device := assigned_object.get('device')):
+
+        device_id = ip_addr_obj['assigned_object']['device']['id']
+        match = next((item for item in devices if item["id"] == device_id), None)
+
+    elif vms and \
+        (assigned_object := ip_addr_obj.get('assigned_object')) and \
+        (vm := assigned_object.get('virtual_machine')):
+
+        vm_id = ip_addr_obj['assigned_object']['virtual_machine']['id']
+        match = next((item for item in vms if item["id"] == vm_id), None)
+
+    if not match:
+        return None
+
+    return match['status']['value']
 
 
 ## Based on the mac address fetch a device.
@@ -158,9 +246,9 @@ def fetch_devices_from_mac_address(ctx: dict, mac_address: str) -> dict | None:
     parameters['mac_address'] = mac_address
 
     # Device or VM?
-    devices = netboxers_helpers.query_netbox(ctx, "dcim/devices/", parameters)
+    devices = query_netbox(ctx, "dcim/devices/", parameters)
     if devices['count'] == 0:
-        devices = netboxers_helpers.query_netbox(ctx, "virtualization/virtual-machines/", parameters)
+        devices = query_netbox(ctx, "virtualization/virtual-machines/", parameters)
         if devices['count'] == 0:
             # Not in Database...
             return None

@@ -1,11 +1,12 @@
 from pathlib import Path
 import ipaddress
-from ipaddress import IPv4Interface, IPv6Interface, ip_interface
+from ipaddress import IPv4Address, IPv6Address, IPv4Interface, IPv6Interface, ip_interface, ip_address
 
-from netboxers import netboxers_helpers
 from netboxers.netboxers_helpers import make_iface_dot_host_name
 from netboxers.netboxers_queries import netbox_query_obj, \
-                                        get_status_of_devvm_from_ipaddresses_obj, \
+                                        query_netbox, \
+                                        netbox_query_list, \
+                                        get_status_of_devvm_from_ipaddresses_obj_from_dev_vm_list, \
                                         get_hosts_from_prefix
 from netboxers.models.netbox import Netbox_Prefix
 from netboxers.models.dns_zonefile import DNS_Zonefile, DNS_Resource_Record
@@ -39,7 +40,7 @@ def create_zone_defaults(ctx: dict) -> DNS_Zonefile:
 
 def fetch_active_prefixes(ctx: dict) -> list[Netbox_Prefix]:
     # Get prefixes
-    prefixes = netboxers_helpers.query_netbox(ctx, "ipam/prefixes/")
+    prefixes = query_netbox(ctx, "ipam/prefixes/")
 
     if prefixes['count'] == 0:
         raise ValueError("No prefixes found in netbox to complete")
@@ -164,90 +165,143 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
             rr_data = 'ns.' + ctx['powerdns_rec_domain'])
     zo.add_rr(rr)
 
+    # Fetch all devices
+    unfiltered_devices = netbox_query_list(ctx, "dcim/devices/")
+    if unfiltered_devices:
+        devices = [d for d in unfiltered_devices if d['status']['value'] in ('active', 'decommissioning', 'staged')]
+    else:
+        devices = None
+
+    # Fetch all virtual machines
+    unfiltered_vms = netbox_query_list(ctx, "virtualization/virtual-machines/")
+    if unfiltered_vms:
+        vms = [d for d in unfiltered_vms if d['status']['value'] in ('active', 'decommissioning', 'staged')]
+    else:
+        vms = None
+
 
     # Query for prefixes and ranges
-    q = netboxers_helpers.query_netbox(ctx, "ipam/ip-addresses/")
+    ip_addresses = netbox_query_list(ctx, "ipam/ip-addresses/")
+    if not ip_addresses:
+        print("Error: no IP addresses found.")
+        return
 
-    for ip_addr_obj in q['results']:
-        tupple = {}
+    # Filter on active and reserved IP addresses
+    ip_addresses_to_process = [ip for ip in ip_addresses if ip['status']['value'] in ('active', 'reserved')]
+                                     
+    # Process
+    for ip_addr_obj in ip_addresses_to_process:
+        if ip_addr_obj['family']['value'] == 6:
+            print(f"IP address {ip_addr_obj['address']} skipping IPv6 for PTR records.")
+            continue
 
+        ip = ip_interface(ip_addr_obj['address'])
+        if not ip.is_private:
+            print(f"IP address {ip_addr_obj['address']} skipping because not RFC1918.")
+            continue
+        
+
+        # Handle reserved
+        # Will create a new DNS Resource Record with the IP address and reserved tag.
+        if ip_addr_obj['status']['value'] == 'reserved': 
+            rr = create_rr_ptr_for_reserved_address(ip_addr_obj['address'], "reserved_ip_address")
+            zo.add_rr(rr)
+            continue
+        
+        
         # If the associated device or virtual machine is not active, skip
-        status = get_status_of_devvm_from_ipaddresses_obj(ctx, ip_addr_obj)
-        if status != 'active':
+        status = get_status_of_devvm_from_ipaddresses_obj_from_dev_vm_list(ctx, ip_addr_obj, devices, vms)
+        if status is None:
+            print(f"skipping {ip_addr_obj['address']} as there is no interface assigned to it.")
+            continue
+        elif status != 'active':
             print(f"skipping {ip_addr_obj['address']} because the device associated to the IP address is not active.")
             continue
 
-        # Skip non-IPv4
-        if ip_addr_obj['family']['value'] != 4:
-            continue
-
-        ## HACK
-        if not ip_addr_obj['address'].startswith('192.168'):
-            print(ip_addr_obj['address'], "not in 192.168")
-            continue
-
-        # No interface? Skip
-        if 'assigned_object' not in ip_addr_obj:
-            print("No interface assigned to", ip_addr_obj['address'])
-            continue
-
-
-        # Assemble the tupple
-        tupple['ip_addr'] = ip_addr_obj['address']
-
-        if 'device' in ip_addr_obj['assigned_object']:
-            tupple['host_name'] = ip_addr_obj['assigned_object']['device']['name']
-        elif 'virtual_machine' in ip_addr_obj['assigned_object']:
-            tupple['host_name'] = ip_addr_obj['assigned_object']['virtual_machine']['name']
-
-        tupple['interface_name'] = ip_addr_obj['assigned_object']['name']
-
-        ip_addr_interface = ipaddress.IPv4Interface(tupple['ip_addr'])
-        tupple['rev_ip_addr'] = ipaddress.ip_address(ip_addr_interface.ip).reverse_pointer
-
-
-        # RFC compliant domain name
-#        rfc_host_name = tupple['host_name'] + "_" + \
-#                            tupple['interface_name'] + "." + \
-#                            ctx['dhcp_default_domain'])
-        rfc_host_name = tupple['interface_name'] + "." + \
-                            tupple['host_name'] + "." + \
-                            ctx['powerdns_rec_domain']
-
-        rr = DNS_Resource_Record(
-                rr_type = 'PTR',
-                rr_name = tupple['rev_ip_addr'],
-                rr_data = rfc_host_name)
+        # Create DNS Resource Record from IP address information
+        rr = create_rr_ptr_from_ip_address(ctx, ip_addr_obj)
         zo.add_rr(rr)
 
 
-    # Not assigned must get a special PTR record
-    net_vlan66 = ipaddress.ip_network('192.168.1.0/24')
-    for ip_addr_obj in q['results']:
-        tupple = {}
-
-        # Skip non-IPv4
-        if ip_addr_obj['family']['value'] != 4:
-            continue
-
-        ## HACK
-        if not ip_addr_obj['address'].startswith('192.168'):
-            print(ip_addr_obj['address'], "not in 192.168")
-            continue
-
-        # No interface? Skip
-        if 'assigned_object' in ip_addr_obj:
-            # print("Interface assigned to", ip_addr_obj['address'])
-            if ip_addr_obj['address'] in net_vlan66.hosts():
-                print("Interface assigned to", ip_addr_obj['address'], "is part of 192.168.1.0/24")
-            continue
+    ## Create PTR records for IP Range addresses.
+    ip_ranges = netbox_query_list(ctx, "ipam/ip-ranges/")
+    if not ip_ranges:
+        print("Warning: no IP addresses found.")
+    else:
+        for ip_range in ip_ranges:
+            for ip in ip_range_iterator(ip_range['start_address'], ip_range['end_address']):
+                rr = create_rr_ptr_for_reserved_address(ip, "range_ip_address")
+                zo.add_rr(rr)
 
 
     # Write zonefile
-    f = open(ctx['powerdns_rec_zonefile_in_addr'], 'w')
+    with open(ctx['powerdns_rec_zonefile_in_addr'], 'w') as f:
+        # Write the zonefile data to file
+        f.write(str(zo))
+        f.write("\n")
 
-    # Write the zonefile data to file
-    f.write(str(zo))
-    f.write("\n")
 
-    f.close()
+def ip_range_iterator(start: str, end: str):
+    start_ip = ip_interface(start)
+    end_ip = ip_interface(end)
+    for ip_int in range(int(start_ip.ip), int(end_ip.ip) + 1):
+        yield ip_address(ip_int)
+
+
+def is_ip_interface(s: str):
+    try:
+        ip = ip_interface(s)
+        return ip.network.prefixlen != ip.max_prefixlen
+    except ValueError:
+        return "invalid"
+
+
+def create_rr_ptr_for_reserved_address(ip_addr: IPv4Address | IPv6Address | str,
+                                       data: str) -> DNS_Resource_Record:
+    if type(ip_addr) is IPv4Address or type(ip_addr) is IPv6Address:
+        rev_ip_addr = ip_addr.reverse_pointer
+    elif type(ip_addr) is str:
+        if is_ip_interface(ip_addr):
+            interface = ip_interface(ip_addr)
+            rev_ip_addr = interface.ip.reverse_pointer
+        else:
+            ip = ip_address(ip_addr)
+            rev_ip_addr = ip.reverse_pointer
+    else:
+        raise ValueError("Error in converting {ip_addr}")
+
+    rr = DNS_Resource_Record(
+            rr_type = 'PTR',
+            rr_name = rev_ip_addr,
+            rr_data = data)
+    
+    return rr
+    
+
+def create_rr_ptr_from_ip_address(ctx: dict, ip_addr_obj: dict) -> DNS_Resource_Record:
+    tupple = {}
+
+    # Assemble the tupple
+    tupple['ip_addr'] = ip_addr_obj['address']
+
+    if 'device' in ip_addr_obj['assigned_object']:
+        tupple['host_name'] = ip_addr_obj['assigned_object']['device']['name']
+    elif 'virtual_machine' in ip_addr_obj['assigned_object']:
+        tupple['host_name'] = ip_addr_obj['assigned_object']['virtual_machine']['name']
+
+    tupple['interface_name'] = ip_addr_obj['assigned_object']['name']
+
+    ip_addr_interface = ipaddress.ip_interface(tupple['ip_addr'])
+    tupple['rev_ip_addr'] = ip_addr_interface.ip.reverse_pointer
+
+
+    # RFC compliant domain name
+    iface_hostname = make_iface_dot_host_name(tupple['host_name'], tupple['interface_name'])
+    rfc_host_name = f"{iface_hostname}.{ctx['powerdns_rec_domain']}"
+
+    rr = DNS_Resource_Record(
+            rr_type = 'PTR',
+            rr_name = tupple['rev_ip_addr'],
+            rr_data = rfc_host_name)
+    
+    return rr

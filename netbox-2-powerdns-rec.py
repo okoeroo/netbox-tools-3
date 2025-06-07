@@ -12,16 +12,16 @@ from powerdnsrec.dnsprocessing import powerdns_recursor_zonefile, \
 
 ### Main
 def main(ctx):
-    if ctx.get('powerdns_rec_zonefile'):
-        print("Netbox to DNS Zonefile")
-        try:
-            zo = powerdns_recursor_zonefile(ctx)
-            footer = read_zonefile_footer_file(ctx)
-            write_zonefile(ctx, zo, footer)
+    # if ctx.get('powerdns_rec_zonefile'):
+    #     print("Netbox to DNS Zonefile")
+    #     try:
+    #         zo = powerdns_recursor_zonefile(ctx)
+    #         footer = read_zonefile_footer_file(ctx)
+    #         write_zonefile(ctx, zo, footer)
             
-        except Exception as err:
-            print(f"Error: {err}")
-            sys.exit(1)
+    #     except Exception as err:
+    #         print(f"Error: {err}")
+    #         sys.exit(1)
 
     if ctx.get('powerdns_rec_zonefile_in_addr'):
         print("Netbox to DNS Zonefile for reverse lookups")
