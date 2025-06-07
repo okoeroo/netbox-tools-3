@@ -96,9 +96,9 @@ def get_range_from_prefix(ctx: dict,
 
 # dhcp-host=vrf_204_IoT_net_vlan_204,24:62:AB:48:F0:07,tasmota_switch_4_wlan0,192.168.204.104,90m
 def get_hosts_from_prefix(ctx: dict,
-                          prefix: IPv4Network | IPv6Network) -> list[tuple] | None:
+                          prefix: IPv4Network | IPv6Network) -> list[tuple[str | None, str, str, IPv4Address | IPv6Address, dict]] | None:
 
-    hosts_list: list[tuple] = []
+    hosts_list: list[tuple[str | None, str, str, IPv4Address | IPv6Address, dict]] = []
                           
     # From IP addr go to assigned_object: interface['url'] for interface object. 
     ip_addrs_in_prefix = netbox_query_list(ctx, 
@@ -120,12 +120,18 @@ def get_hosts_from_prefix(ctx: dict,
 
                     interface_obj = netbox_query_obj(ctx, stripped_url)
                     if interface_obj:
-                        mac_addr = interface_obj.get('mac_address')
-                        dev_name = interface_obj['device']['name'] if interface_obj.get('device') else interface_obj['virtual_machine']['name']
-                        if_name  = interface_obj['name']
-                        ip       = ip_interface(ip_addr['address']).ip
+                        mac_addr      = interface_obj.get('mac_address')
+                        dev_name      = interface_obj['device']['name'] if interface_obj.get('device') else interface_obj['virtual_machine']['name']
+                        if_name       = interface_obj['name']
+                        ip            = ip_interface(ip_addr['address']).ip
+                        interface_obj = interface_obj
 
-                        tup = (mac_addr, dev_name, if_name, ip)
+                        tup: tuple[str | None, 
+                                   str, 
+                                   str, 
+                                   IPv4Address | IPv6Address, 
+                                   dict] = (mac_addr, dev_name, if_name, ip, interface_obj)
+
                         hosts_list.append(tup)
 
         return hosts_list

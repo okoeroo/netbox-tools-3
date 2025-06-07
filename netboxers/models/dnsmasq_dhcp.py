@@ -1,44 +1,7 @@
 
-from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network, ip_network
+from ipaddress import IPv4Address, IPv6Address
+from netboxers.models.netbox import Netbox_Prefix
 
-
-class DNSMasq_DHCP_Prefix:
-    def __init__(self, data: dict):
-        self.data: dict = data
-        self.prefix: IPv4Network | IPv6Network = ip_network(self.data['prefix'], strict=True)
-    
-    def get_prefix(self) -> IPv4Network | IPv6Network:
-        return self.prefix
-
-    def get_vrf(self) -> dict | None:
-        return self.data.get('vrf')
-            
-    def get_scope(self) -> dict | None:
-        return self.data.get('scope')
-
-    def get_site(self) -> str | None:
-        if scope := self.data.get('scope'):
-            return scope['name']
-
-    def get_vlan(self) -> dict | None:
-        return self.data.get('vlan')
-
-    def get_status(self) -> dict:
-        return self.data['status']['value']
-
-    def is_active(self) -> bool:
-        return self.get_status() == 'active'
-    
-    def get_role(self) -> dict | None:
-        return self.data.get('role')
-
-    def is_pool(self) -> bool:
-        return self.data['is_pool']
-
-    def get_tags(self) -> list[str] | None:
-        tags = self.data.get('tags')
-        if not tags: return None
-        return [t.get('name') for t in tags]
 
 
 class DNSMasq_DHCP_Generic_Switchable:
@@ -54,15 +17,15 @@ class DNSMasq_DHCP_Generic_Switchable:
 
 
 class DNSMasq_DHCP_Option:
-    def __init__(self, prefix: DNSMasq_DHCP_Prefix, option: str, value: str):
+    def __init__(self, prefix: Netbox_Prefix, option: str, value: str):
         if not prefix:
-            raise ValueError("DNSMasq_DHCP_Option requires a DNSMasq_DHCP_Prefix")
+            raise ValueError("DNSMasq_DHCP_Option requires a Netbox_Prefix")
             
-        self.prefix: DNSMasq_DHCP_Prefix    = prefix
+        self.prefix: Netbox_Prefix    = prefix
         self.option: str                    = option
         self.value: str                     = value
 
-    def get_prefix(self) -> DNSMasq_DHCP_Prefix:
+    def get_prefix(self) -> Netbox_Prefix:
         return self.prefix
 
     def get_option(self) -> str:
@@ -106,18 +69,18 @@ class DNSMasq_DHCP_Option:
 
 class DNSMasq_DHCP_Range:
     def __init__(self, 
-                 prefix: DNSMasq_DHCP_Prefix,
+                 prefix: Netbox_Prefix,
                  range_min: IPv4Address | IPv6Address, 
                  range_max: IPv4Address | IPv6Address, 
                  netmask: IPv4Address | IPv6Address, 
                  lease_time: str):
-        self.prefix: DNSMasq_DHCP_Prefix = prefix
+        self.prefix: Netbox_Prefix = prefix
         self.range_min: IPv4Address | IPv6Address = range_min
         self.range_max: IPv4Address | IPv6Address = range_max
         self.netmask: IPv4Address | IPv6Address = netmask
         self.lease_time: str = lease_time
 
-    def get_prefix(self) -> DNSMasq_DHCP_Prefix:
+    def get_prefix(self) -> Netbox_Prefix:
         return self.prefix
 
     def get_range_min(self):
@@ -155,7 +118,7 @@ class DNSMasq_DHCP_Range:
 
 class DNSMasq_DHCP_Host:
     def __init__(self, 
-                 prefix: DNSMasq_DHCP_Prefix,
+                 prefix: Netbox_Prefix,
                  mac_address: str, 
                  hostname: str, 
                  ip_address: str | IPv4Address | IPv6Address, 
@@ -203,7 +166,7 @@ class DNSMasq_DHCP_Host:
 
 
 class DNSMasq_DHCP_Section:
-    def __init__(self, prefix_obj: DNSMasq_DHCP_Prefix):
+    def __init__(self, prefix_obj: Netbox_Prefix):
         self.scope = prefix_obj.get_scope()
         self.site = prefix_obj.get_site()
         self.role = prefix_obj.get_role()

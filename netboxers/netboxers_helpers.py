@@ -10,6 +10,20 @@ import requests
 import dns
 
 
+# All non-alfanum, replace with underscore and lowercase it
+# Used to create a interface + device name combo.
+def sanitize(s: str) -> str:
+    return re.sub(r'[^a-zA-Z0-9]', '_', s).lower()
+
+
+def make_host_iface_name(dev_name: str, if_name: str) -> str:
+    return f"{sanitize(dev_name)}_{sanitize(if_name)}"
+
+
+def make_iface_dot_host_name(dev_name: str, if_name: str) -> str:
+    return f"{sanitize(if_name)}.{sanitize(dev_name)}"
+
+
 def pp(obj):
     pp = pprint.PrettyPrinter(indent=4)
     pp.pprint(obj)
