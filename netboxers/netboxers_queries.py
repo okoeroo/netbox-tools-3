@@ -127,8 +127,7 @@ def get_dns_from_net_default_gateway_from_prefix(ctx: dict,
                            "ipam/ip-addresses/", 
                            parent = str(prefix), 
                            tag = ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'])
-    if results:
-        ip_str = results[0]['dns_name']
+    if results and (ip_str := results[0]['dns_name']) and ip_str:
         return ip_interface(ip_str)
     return None
 
@@ -161,7 +160,7 @@ def get_assigned_interface_from_ip_address(ctx: dict, ip_addr: dict) -> dict | N
         if assigned_id:
             return next((i for i in ctx['cache']['virtualization/interfaces/'] if i['id'] == assigned_id), None)
     else:
-        print("--------------------", assigned_object_type)
+        raise ValueError("Unknown associatation detected")
 
     return None
 
