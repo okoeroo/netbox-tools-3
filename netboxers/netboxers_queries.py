@@ -106,6 +106,16 @@ def get_net_default_gateway_from_prefix(ctx: dict,
     Returns:
         str | None: ip address or None
     """
+
+    requested = cache_netbox_query_list(ctx, "ipam/ip-addresses/")
+    
+    if unfiltered := cache_netbox_query_list(ctx, "ipam/ip-addresses/"):
+        with_tag = [d for d in unfiltered if d['tag']['value'] == ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag']]
+
+        print(with_tag)
+    
+    return None
+    
     results = netbox_query_list(ctx, 
                            "ipam/ip-addresses/", 
                            parent = str(prefix), 
@@ -160,40 +170,38 @@ def get_hosts_from_prefix(ctx: dict,
     hosts_list: list[tuple[str | None, str, str, IPv4Address | IPv6Address, dict]] = []
                           
     # From IP addr go to assigned_object: interface['url'] for interface object. 
-    ip_addrs_in_prefix = netbox_query_list(ctx, 
-                                           "ipam/ip-addresses/", 
-                                           parent = str(prefix),
-                                           status = 'active')
+    unfiltered_ip_addrs = cache_netbox_query_list(ctx, "ipam/ip-addresses/")
+    if not unfiltered_ip_addrs:
+        return None
+
+    ip_addrs_in_prefix = [ip_addr for ip_addr in unfiltered_ip_addrs 
+                                    if ip_addr['status']['value'] == 'active' and 
+                                    ip_interface(ip_addr['address']).ip in prefix] 
     if not ip_addrs_in_prefix:
         return None
         
-    if ip_addrs_in_prefix := netbox_query_list(ctx, 
-                                          "ipam/ip-addresses/", 
-                                          parent = str(prefix),
-                                          status = 'active'):
+    for ip_addr in ip_addrs_in_prefix:
+        if assigned_object := ip_addr.get('assigned_object'):
+            if assigned_object_url := assigned_object.get('url'):
+                stripped_url = assigned_object_url.split("/api/", 1)[1]
 
-        for ip_addr in ip_addrs_in_prefix:
-            if assigned_object := ip_addr.get('assigned_object'):
-                if assigned_object_url := assigned_object.get('url'):
-                    stripped_url = assigned_object_url.split("/api/", 1)[1]
+                interface_obj = netbox_query_obj(ctx, stripped_url)
+                if interface_obj:
+                    mac_addr      = interface_obj.get('mac_address')
+                    dev_name      = interface_obj['device']['name'] if interface_obj.get('device') else interface_obj['virtual_machine']['name']
+                    if_name       = interface_obj['name']
+                    ip            = ip_interface(ip_addr['address']).ip
+                    interface_obj = interface_obj
 
-                    interface_obj = netbox_query_obj(ctx, stripped_url)
-                    if interface_obj:
-                        mac_addr      = interface_obj.get('mac_address')
-                        dev_name      = interface_obj['device']['name'] if interface_obj.get('device') else interface_obj['virtual_machine']['name']
-                        if_name       = interface_obj['name']
-                        ip            = ip_interface(ip_addr['address']).ip
-                        interface_obj = interface_obj
+                    tup: tuple[str | None, 
+                                str, 
+                                str, 
+                                IPv4Address | IPv6Address, 
+                                dict] = (mac_addr, dev_name, if_name, ip, interface_obj)
 
-                        tup: tuple[str | None, 
-                                   str, 
-                                   str, 
-                                   IPv4Address | IPv6Address, 
-                                   dict] = (mac_addr, dev_name, if_name, ip, interface_obj)
+                    hosts_list.append(tup)
 
-                        hosts_list.append(tup)
-
-        return hosts_list
+    return hosts_list
 
 
 def get_status_of_devvm_from_ipaddresses_obj(ctx: dict, ip_addr_obj: dict):
@@ -254,3 +262,39 @@ def fetch_devices_from_mac_address(ctx: dict, mac_address: str) -> dict | None:
             return None
 
     return devices
+
+
+# Fetch data which is useful multiple times.
+def prefill_cache(ctx: dict) -> dict:
+    ctx['cache'] = {}
+    
+    # Fetch all devices
+    unfiltered_devices = netbox_query_list(ctx, "dcim/devices/")
+    ctx['cache']['dcim/devices/'] = unfiltered_devices
+    
+    # Fetch all virtual machines
+    unfiltered_vms = netbox_query_list(ctx, "virtualization/virtual-machines/")
+    ctx['cache']['virtualization/virtual-machines/'] = unfiltered_vms
+    
+    # Fetch all prefixes
+    prefixes = netbox_query_list(ctx, "ipam/prefixes/")
+    ctx['cache']['ipam/prefixes/'] = prefixes
+    
+    # Query for ip-addresses
+    ip_addresses = netbox_query_list(ctx, "ipam/ip-addresses/")
+    ctx['cache']['ipam/ip-addresses/'] = ip_addresses
+
+    # Query for ip-ranges
+    ip_ranges = netbox_query_list(ctx, "ipam/ip-ranges/")
+    ctx['cache']['ipam/ip-ranges/'] = ip_ranges
+
+    return ctx
+
+
+def cache_netbox_query_list(ctx: dict,
+                            subquery: str) -> dict | list | None:
+    
+    if (cache := ctx.get('cache')) and (requested := cache.get(subquery)):
+        return requested
+    
+    return netbox_query_list(ctx, subquery)

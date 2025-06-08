@@ -4,6 +4,7 @@ import sys
 
 from powerdnsrec.configuration import argparsing, parse_config, sanity_checks
 from netboxers.netboxers_helpers import get_ctx
+from netboxers.netboxers_queries import prefill_cache
 from powerdnsrec.dnsprocessing import powerdns_recursor_zonefile, \
                                       write_zonefile, \
                                       read_zonefile_footer_file, \
@@ -12,16 +13,19 @@ from powerdnsrec.dnsprocessing import powerdns_recursor_zonefile, \
 
 ### Main
 def main(ctx):
-    # if ctx.get('powerdns_rec_zonefile'):
-    #     print("Netbox to DNS Zonefile")
-    #     try:
-    #         zo = powerdns_recursor_zonefile(ctx)
-    #         footer = read_zonefile_footer_file(ctx)
-    #         write_zonefile(ctx, zo, footer)
-            
-    #     except Exception as err:
-    #         print(f"Error: {err}")
-    #         sys.exit(1)
+    ctx = prefill_cache(ctx)
+    print("Info: Cache filled.")
+    
+    if ctx.get('powerdns_rec_zonefile'):
+        print("Netbox to DNS Zonefile")
+        try:
+            zo = powerdns_recursor_zonefile(ctx)
+            footer = read_zonefile_footer_file(ctx)
+            write_zonefile(ctx, zo, footer)
+          
+        except Exception as err:
+            print(f"Error: {err}")
+            sys.exit(1)
 
     if ctx.get('powerdns_rec_zonefile_in_addr'):
         print("Netbox to DNS Zonefile for reverse lookups")

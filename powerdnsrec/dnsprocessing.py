@@ -3,9 +3,7 @@ import ipaddress
 from ipaddress import IPv4Address, IPv6Address, IPv4Interface, IPv6Interface, ip_interface, ip_address
 
 from netboxers.netboxers_helpers import make_iface_dot_host_name
-from netboxers.netboxers_queries import netbox_query_obj, \
-                                        query_netbox, \
-                                        netbox_query_list, \
+from netboxers.netboxers_queries import cache_netbox_query_list, \
                                         get_status_of_devvm_from_ipaddresses_obj_from_dev_vm_list, \
                                         get_hosts_from_prefix
 from netboxers.models.netbox import Netbox_Prefix
@@ -40,14 +38,14 @@ def create_zone_defaults(ctx: dict) -> DNS_Zonefile:
 
 def fetch_active_prefixes(ctx: dict) -> list[Netbox_Prefix]:
     # Get prefixes
-    prefixes = query_netbox(ctx, "ipam/prefixes/")
+    prefixes = cache_netbox_query_list(ctx, "ipam/prefixes/")
 
-    if prefixes['count'] == 0:
+    if not prefixes:
         raise ValueError("No prefixes found in netbox to complete")
 
     # Select which prefixes to work on
     res = []
-    for p in prefixes['results']:
+    for p in prefixes:
         np = Netbox_Prefix(p)
         if np.is_active():
             res.append(np)
@@ -55,6 +53,26 @@ def fetch_active_prefixes(ctx: dict) -> list[Netbox_Prefix]:
             print(f"Notice: skipping prefix \"{np.get_prefix()} due to configured filter constrains.")
     return res
     
+
+def get_device_or_virtualmachine_obj(ctx: dict, interface_obj: dict) -> dict | None:
+    # Get device or virtualmachine object associated to the interface object.
+
+    for key, cache_key in [
+            ('device', 'dcim/devices/'),
+            ('virtual_machine', 'virtualization/virtual-machines/')
+        ]:
+        if obj := interface_obj.get(key):
+            return next((d for d in ctx['cache'][cache_key] if d['id'] == obj['id']), None)
+    return None
+
+
+def get_primary_ip_from_interface(ctx: dict, interface_obj: dict) -> IPv4Interface | IPv6Interface | None:
+    # get primary IP address from the interface (through the device configuration)
+    devvm = get_device_or_virtualmachine_obj(ctx, interface_obj)
+    if devvm and (addr := devvm.get('primary_ip', {}).get('address')):
+        return ip_interface(addr)
+    return None
+
 
 def powerdns_recursor_zonefile(ctx) -> DNS_Zonefile:
     # Setup defaults
@@ -86,21 +104,16 @@ def powerdns_recursor_zonefile(ctx) -> DNS_Zonefile:
             # yes, CNAME the name of the device to this IP through the
             # iface_hostname value.
 
-            # Get primary based on the interface object's associated device
-            url = interface_obj['device']['url'] if interface_obj.get('device') else interface_obj['virtual_machine']['url']
-            devvm: dict | None = netbox_query_obj(ctx, url)
+            primary_ip = get_primary_ip_from_interface(ctx, interface_obj)
 
-            if devvm and devvm.get('primary_ip') and devvm['primary_ip'].get('address'):
-                primary_ip: IPv4Interface | IPv6Interface = ip_interface(devvm['primary_ip']['address'])
-
-                if ip == primary_ip.ip:
-                    # Add CNAME towards primary ip_address holding interface
-                    rr = DNS_Resource_Record(
-                            rr_type = 'CNAME',
-                            rr_name = dev_name,
-                            rr_data = f"{iface_hostname}.{ctx['powerdns_rec_domain']}"
-                            )
-                    zo.add_rr(rr)
+            if primary_ip and ip == primary_ip.ip:
+                # Add CNAME towards primary ip_address holding interface
+                rr = DNS_Resource_Record(
+                        rr_type = 'CNAME',
+                        rr_name = dev_name,
+                        rr_data = f"{iface_hostname}.{ctx['powerdns_rec_domain']}"
+                        )
+                zo.add_rr(rr)
 
     return zo
 
@@ -166,14 +179,14 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
     zo.add_rr(rr)
 
     # Fetch all devices
-    unfiltered_devices = netbox_query_list(ctx, "dcim/devices/")
+    unfiltered_devices = cache_netbox_query_list(ctx, "dcim/devices")
     if unfiltered_devices:
         devices = [d for d in unfiltered_devices if d['status']['value'] in ('active', 'decommissioning', 'staged')]
     else:
         devices = None
 
     # Fetch all virtual machines
-    unfiltered_vms = netbox_query_list(ctx, "virtualization/virtual-machines/")
+    unfiltered_vms = cache_netbox_query_list(ctx, "virtualization/virtual-machines/")
     if unfiltered_vms:
         vms = [d for d in unfiltered_vms if d['status']['value'] in ('active', 'decommissioning', 'staged')]
     else:
@@ -181,7 +194,7 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 
 
     # Query for prefixes and ranges
-    ip_addresses = netbox_query_list(ctx, "ipam/ip-addresses/")
+    ip_addresses = cache_netbox_query_list(ctx, "ipam/ip-addresses/")
     if not ip_addresses:
         print("Error: no IP addresses found.")
         return
@@ -224,7 +237,7 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 
 
     ## Create PTR records for IP Range addresses.
-    ip_ranges = netbox_query_list(ctx, "ipam/ip-ranges/")
+    ip_ranges = cache_netbox_query_list(ctx, "ipam/ip-ranges/")
     if not ip_ranges:
         print("Warning: no IP addresses found.")
     else:
