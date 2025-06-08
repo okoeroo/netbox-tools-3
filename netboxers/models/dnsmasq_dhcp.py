@@ -17,13 +17,22 @@ class DNSMasq_DHCP_Generic_Switchable:
 
 
 class DNSMasq_DHCP_Option:
-    def __init__(self, prefix: Netbox_Prefix, option: str, value: str):
+    def __init__(self, 
+                 prefix: Netbox_Prefix, 
+                 option: str, 
+                 value: str):
         if not prefix:
             raise ValueError("DNSMasq_DHCP_Option requires a Netbox_Prefix")
             
-        self.prefix: Netbox_Prefix    = prefix
-        self.option: str                    = option
-        self.value: str                     = value
+        self.prefix: Netbox_Prefix = prefix
+        self.option: str           = option
+        self.value: str            = value
+
+        self.vlan_id = None
+        self.vlan_name = None
+        if vlan := prefix.get_vlan():
+            self.vlan_id = vlan['vid']
+            self.vlan_name = vlan['display']
 
     def get_prefix(self) -> Netbox_Prefix:
         return self.prefix
@@ -47,6 +56,25 @@ class DNSMasq_DHCP_Option:
             case _:
                 return ""
 
+    def get_vlan_id(self) -> int | None:
+        if vlan := self.get_prefix().get_vlan():
+            return vlan['vid']
+        
+    def get_vlan_short(self) -> str:
+        vlan_id = self.get_vlan_id()
+        return f"vlan{vlan_id}"
+
+    def get_vrf_name(self) -> str | None:
+        prefix = self.get_prefix()
+        if vrf := prefix.get_vrf():
+            return vrf['name']
+
+    def get_dhcp_tag(self) -> str:
+        l = []
+        l.append(self.get_vrf_name())
+        l.append(self.get_vlan_short())
+        return "_".join(l)
+
     def __add__(self, o):
         return self.get_str() + o
 
@@ -57,10 +85,7 @@ class DNSMasq_DHCP_Option:
     def get_str(self) -> str:
         res = []
 
-        prefix = self.get_prefix()
-        if vrf:= prefix.get_vrf():
-            res.append(vrf['name'])
-
+        res.append(self.get_dhcp_tag())
         res.append(str(self.get_option()))
         res.append(str(self.get_value()))
 
@@ -80,6 +105,12 @@ class DNSMasq_DHCP_Range:
         self.netmask: IPv4Address | IPv6Address = netmask
         self.lease_time: str = lease_time
 
+        self.vlan_id = None
+        self.vlan_name = None
+        if vlan := prefix.get_vlan():
+            self.vlan_id = vlan['vid']
+            self.vlan_name = vlan['display']
+
     def get_prefix(self) -> Netbox_Prefix:
         return self.prefix
 
@@ -95,6 +126,29 @@ class DNSMasq_DHCP_Range:
     def get_lease_time(self):
         return self.lease_time
 
+    def get_vlan_id(self) -> int | None:
+        if vlan := self.get_prefix().get_vlan():
+            return vlan['vid']
+
+    def get_vlan_name(self) -> int | None:
+        if vlan := self.get_prefix().get_vlan():
+            return vlan['display']
+        
+    def get_vlan_short(self) -> str:
+        vlan_id = self.get_vlan_id()
+        return f"vlan{vlan_id}"
+
+    def get_vrf_name(self) -> str | None:
+        prefix = self.get_prefix()
+        if vrf := prefix.get_vrf():
+            return vrf['name']
+
+    def get_dhcp_tag(self) -> str:
+        l = []
+        l.append(self.get_vrf_name())
+        l.append(self.get_vlan_short())
+        return "_".join(l)
+
     def __add__(self, o):
         return self.get_str() + o
 
@@ -104,10 +158,7 @@ class DNSMasq_DHCP_Range:
     def get_str(self):
         res = []
 
-        prefix = self.get_prefix()
-        if vrf:= prefix.get_vrf():
-            res.append(vrf['name'])
-
+        res.append(self.get_dhcp_tag())
         res.append(str(self.get_range_min()))
         res.append(str(self.get_range_max()))
         res.append(str(self.get_netmask()))
@@ -129,6 +180,12 @@ class DNSMasq_DHCP_Host:
         self.ip_address = ip_address
         self.lease_time = lease_time
 
+        self.vlan_id = None
+        self.vlan_name = None
+        if vlan := prefix.get_vlan():
+            self.vlan_id = vlan['vid']
+            self.vlan_name = vlan['display']
+
     def get_prefix(self):
         return self.prefix
 
@@ -144,6 +201,29 @@ class DNSMasq_DHCP_Host:
     def get_lease_time(self):
         return self.lease_time
 
+    def get_vlan_id(self) -> int | None:
+        if vlan := self.get_prefix().get_vlan():
+            return vlan['vid']
+
+    def get_vlan_name(self) -> int | None:
+        if vlan := self.get_prefix().get_vlan():
+            return vlan['display']
+
+    def get_vlan_short(self) -> str:
+        vlan_id = self.get_vlan_id()
+        return f"vlan{vlan_id}"
+
+    def get_vrf_name(self) -> str | None:
+        prefix = self.get_prefix()
+        if vrf := prefix.get_vrf():
+            return vrf['name']
+
+    def get_dhcp_tag(self) -> str:
+        l = []
+        l.append(self.get_vrf_name())
+        l.append(self.get_vlan_short())
+        return "_".join(l)
+
     def __add__(self, o):
         return self.get_str() + o
 
@@ -153,10 +233,7 @@ class DNSMasq_DHCP_Host:
     def get_str(self):
         res = []
 
-        prefix = self.get_prefix()
-        if vrf:= prefix.get_vrf():
-            res.append(vrf['name'])
-
+        res.append(self.get_dhcp_tag())
         res.append(str(self.get_mac_address()))
         res.append(str(self.get_hostname()))
         res.append(str(self.get_ip_address()))
@@ -211,6 +288,9 @@ class DNSMasq_DHCP_Section:
 
     def append_dhcp_host(self, dhcp_host: DNSMasq_DHCP_Host):
         self.dhcp_hosts.append(dhcp_host)
+
+    def get_vlan_short(self) -> str:
+        return f"vlan{self.vlan_id}"
 
 
     def get_header(self):
