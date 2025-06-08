@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from dnsmasq import process_dnsmasq_sections
+from dnsmasq.process_dnsmasq_sections import netbox_process_prefix_into_dnsmasq_dhcp_section
 from netboxers import netboxers_helpers
 from netboxers.netboxers_queries import fetch_active_prefixes
 from netboxers.models.netbox import Netbox_Prefix
@@ -23,7 +23,7 @@ def netbox_process_prefixes_into_dnsmasq_dhcp_config(ctx: dict, dnsmasq_dhcp_con
         # Use a Netbox_Prefix to create a DNSMasq_DHCP_Section
 
         # Process the prefix. Output is a DNSMasq_DHCP_Section object
-        dnsmasq_dhcp_section = process_dnsmasq_sections.netbox_process_prefix_into_dnsmasq_dhcp_section(ctx, p)
+        dnsmasq_dhcp_section = netbox_process_prefix_into_dnsmasq_dhcp_section(ctx, p)
         if dnsmasq_dhcp_section is None:
             raise ValueError(f"Something happend processing the prefix {p.get_prefix()}")
 
