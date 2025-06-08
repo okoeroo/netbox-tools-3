@@ -62,7 +62,7 @@ class DNSMasq_DHCP_Option:
         
     def get_vlan_short(self) -> str:
         vlan_id = self.get_vlan_id()
-        return f"vlan{vlan_id}"
+        return f"vlan_{vlan_id}"
 
     def get_vrf_name(self) -> str | None:
         prefix = self.get_prefix()
@@ -136,7 +136,7 @@ class DNSMasq_DHCP_Range:
         
     def get_vlan_short(self) -> str:
         vlan_id = self.get_vlan_id()
-        return f"vlan{vlan_id}"
+        return f"vlan_{vlan_id}"
 
     def get_vrf_name(self) -> str | None:
         prefix = self.get_prefix()
@@ -211,7 +211,7 @@ class DNSMasq_DHCP_Host:
 
     def get_vlan_short(self) -> str:
         vlan_id = self.get_vlan_id()
-        return f"vlan{vlan_id}"
+        return f"vlan_{vlan_id}"
 
     def get_vrf_name(self) -> str | None:
         prefix = self.get_prefix()
@@ -290,7 +290,7 @@ class DNSMasq_DHCP_Section:
         self.dhcp_hosts.append(dhcp_host)
 
     def get_vlan_short(self) -> str:
-        return f"vlan{self.vlan_id}"
+        return f"vlan_{self.vlan_id}"
 
 
     def get_header(self):
