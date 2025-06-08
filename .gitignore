@@ -8,3 +8,4 @@ zonefile.footer
 output-files
 .DS_Store
 output
+test.sh*

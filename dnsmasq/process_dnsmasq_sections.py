@@ -1,225 +1,155 @@
 #!/usr/bin/env python3
 
-import ipaddress
-
-from netboxers import netboxers_helpers, netboxers_queries
-from netboxers.models.dnsmasq_dhcp import DNSMasq_DHCP_Section, DNSMasq_DHCP_Option, DNSMasq_DHCP_Range, DNSMasq_DHCP_Host
-
-
-def netbox_generate_dnsmasq_dhcp_section_header_info(prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
-    # Record the DNSMasq_DHCP_Section info
-    if 'scope' in prefix_obj:
-        if prefix_obj['scope'] is not None:
-            dnsmasq_dhcp_section.set_scope(prefix_obj['scope']['name'])
-    # Compatibility with version 3.x
-    elif 'site' in prefix_obj:
-        if prefix_obj['site'] is not None:
-            dnsmasq_dhcp_section.set_scope(prefix_obj['site']['name'])
-
-    if prefix_obj['role'] is not None:
-        dnsmasq_dhcp_section.set_role(prefix_obj['role']['name'])
-    if prefix_obj['vlan'] is not None:
-        dnsmasq_dhcp_section.set_vlan_id(prefix_obj['vlan']['vid'])
-        dnsmasq_dhcp_section.set_vlan_name(prefix_obj['vlan']['display'])
-    if prefix_obj['vrf'] is not None:
-        dnsmasq_dhcp_section.set_vrf_name(prefix_obj['vrf']['name'])
-    if prefix_obj['prefix'] is not None:
-        dnsmasq_dhcp_section.set_prefix(prefix_obj['prefix'])
-
-    return dnsmasq_dhcp_section
+from ipaddress import ip_interface, ip_network
+from netboxers.models.netbox import Netbox_Prefix
+from netboxers.models.dnsmasq_dhcp import   DNSMasq_DHCP_Section, \
+                                            DNSMasq_DHCP_Option, \
+                                            DNSMasq_DHCP_Range, \
+                                            DNSMasq_DHCP_Host
+from netboxers.netboxers_queries import get_net_default_gateway_from_prefix, \
+                                        get_dns_from_net_default_gateway_from_prefix, \
+                                        get_range_from_prefix, \
+                                        get_hosts_from_prefix
+from netboxers.netboxers_helpers import make_host_iface_name
 
 
 # Get default gateway for the prefix
-def netbox_process_prefix_into_dnsmasq_dhcp_section_gateway(ctx: dict, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section | None:
-    # Check if there is a specific prefix with gateway in the config file
-    if 'prefixes' in ctx and \
-        prefix_obj['prefix'] in ctx['prefixes'] and \
-        'gateway' in ctx['prefixes'][prefix_obj['prefix']]:
+def netbox_process_prefix_into_dnsmasq_dhcp_section_gateway(ctx: dict, 
+                                                            prefix_obj: Netbox_Prefix) -> DNSMasq_DHCP_Option | None:
 
-        # Record the default gateway
-        dnsmasq_dhcp_section.append_dhcp_option(
-                DNSMasq_DHCP_Option(
-                    netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                    "3", ctx['prefixes'][prefix_obj['prefix']]['gateway']))
-        return dnsmasq_dhcp_section
-
-    ## Resort to old behavior: Get default gateway from the VRF based on a tag
-    default_gateway_ip_addr_obj = netboxers_queries.get_net_default_gateway_from_vrf(ctx, prefix_obj['vrf']['id'])
-    if default_gateway_ip_addr_obj is None:
+    gateway = get_net_default_gateway_from_prefix(ctx, prefix_obj.get_prefix())
+    if gateway is None:
+        print(f"Warning: No \'{ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag']}\' configured for prefix {prefix_obj.get_prefix()}")
         return None
 
-    # Cut and split cidr to addr
-    default_gateway_ip_addr = \
-        ipaddress.ip_address(default_gateway_ip_addr_obj['address'].split("/")[0])
+    # Parse to check if the input is OK
+    ip = ip_interface(gateway)
 
-    # Write default gateway
-    if default_gateway_ip_addr is not None:
-        # Record the default gateway
-        dnsmasq_dhcp_section.append_dhcp_option(
-                DNSMasq_DHCP_Option(
-                    netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                    "3", default_gateway_ip_addr))
-
-    return dnsmasq_dhcp_section
-
+    # Record the default gateway
+    return DNSMasq_DHCP_Option(prefix_obj, "3", str(ip.ip))
+    
 
 # Get DNS server configuration for the prefix
-def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx: dict, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section | None:
+def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx: dict,
+                                                        prefix_obj: Netbox_Prefix) -> DNSMasq_DHCP_Option | None:
     # Override from config or args, or fetch the config from netbox
-    if 'dnsmasq_dhcp_override_dns_server' in ctx and ctx['dnsmasq_dhcp_override_dns_server'] is not None:
-        default_dnsname_ip_addr = ctx['dnsmasq_dhcp_override_dns_server']
-
+    if default_dnsname_ip_addr := ctx.get('dnsmasq_dhcp_override_dns_server'):
         # Record the DNS server
-        dnsmasq_dhcp_section.append_dhcp_option(
-                DNSMasq_DHCP_Option(
-                    netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                    "6", default_dnsname_ip_addr))
+        return DNSMasq_DHCP_Option(prefix_obj, "6", default_dnsname_ip_addr)
 
-        return dnsmasq_dhcp_section
-
-    # Check if there is a specific prefix with dns in the config file for its prefix
-    if 'prefixes' in ctx and prefix_obj['prefix'] in ctx['prefixes'] and \
-        'dns' in ctx['prefixes'][prefix_obj['prefix']]:
-
-        # Record the DNS server
-        dnsmasq_dhcp_section.append_dhcp_option(
-                DNSMasq_DHCP_Option(
-                    netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                    "6", ctx['prefixes'][prefix_obj['prefix']]['dns']))
-
-        return dnsmasq_dhcp_section
-
-    ### Resort to the old behavior, fetch the gateway address, and from the
-    ### gateway address fetch its associated DNS server
-    default_gateway_ip_addr_obj = netboxers_queries.get_net_default_gateway_from_vrf(ctx, prefix_obj['vrf']['id'])
-    if default_gateway_ip_addr_obj is None:
+    dns = get_dns_from_net_default_gateway_from_prefix(ctx, prefix_obj.get_prefix())
+    if not dns:
+        print(f"Warning: No dns name set with the ip address with the tag \'{ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag']}\' configured for prefix {prefix_obj.get_prefix()}")
         return None
 
-    # Cut and split cidr to addr
-    default_gateway_ip_addr = \
-        ipaddress.ip_address(default_gateway_ip_addr_obj['address'].split("/")[0])
+    # Parse to check if the input is OK
+    ip = ip_interface(dns)
 
-    # Write DNS server based on gateway information
-    if default_gateway_ip_addr is not None:
-        # Get DNS from the default gateway record
-        default_dnsname_ip_addr = netboxers_queries.get_dns_host_from_ip_address(ctx, default_gateway_ip_addr_obj)
-
-        # Write DNS server
-        if default_dnsname_ip_addr is not None:
-            # Record the DNS server
-            ## Recording scope, option and value
-            dnsmasq_dhcp_section.append_dhcp_option(
-                    DNSMasq_DHCP_Option(
-                        netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                        "6", default_dnsname_ip_addr))
-
-    return dnsmasq_dhcp_section
+    return DNSMasq_DHCP_Option(prefix_obj, "6", str(ip.ip))
 
 
 # Get ntp from the configuration file for the prefix
-def netbox_process_prefix_into_dnsmasq_dhcp_section_ntp(ctx: dict, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
-    # Check if there is a specific prefix with ntp in the config file for its prefix
-    if 'prefixes' in ctx and prefix_obj['prefix'] in ctx['prefixes'] and \
-        'ntp' in ctx['prefixes'][prefix_obj['prefix']]:
+def netbox_process_prefix_into_dnsmasq_dhcp_section_ntp(ctx: dict,
+                                                        prefix_obj: Netbox_Prefix) -> DNSMasq_DHCP_Option | None:
+    # Override from config or args, or fetch the config from netbox
+    if default_ntp_ip_addr := ctx.get('dnsmasq_dhcp_default_ntp_server'):
+        # Record the DNS server
+        return DNSMasq_DHCP_Option(prefix_obj, "42", default_ntp_ip_addr)
 
-        # Record the ntp server
-        dnsmasq_dhcp_section.append_dhcp_option(
-                DNSMasq_DHCP_Option(
-                    netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                    "42", ctx['prefixes'][prefix_obj['prefix']]['ntp']))
-
-        return dnsmasq_dhcp_section
-
-    # Write NTP server
-    if 'dnsmasq_dhcp_default_ntp_server' in ctx and ctx['dnsmasq_dhcp_default_ntp_server'] is not None:
-        dnsmasq_dhcp_section.append_dhcp_option(
-                DNSMasq_DHCP_Option(
-                    netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                    "42", ctx['dnsmasq_dhcp_default_ntp_server']))
-
-    return dnsmasq_dhcp_section
+    return None
 
 
 # Get Domain search from the configuration file, which is a generich setting at the moment.
-def netbox_process_prefix_into_dnsmasq_dhcp_section_domain_search(
-        ctx: dict,
-        prefix_obj: dict, 
-        dnsmasq_dhcp_section: DNSMasq_DHCP_Section) -> DNSMasq_DHCP_Section:
+def netbox_process_prefix_into_dnsmasq_dhcp_section_domain_search(ctx: dict,
+                                                                  prefix_obj: Netbox_Prefix) -> DNSMasq_DHCP_Option| None:
 
     # Check if there is a specific domain search in the config file, which is a generic setting
-    if 'dnsmasq_dhcp_domain_search' in ctx and ctx['dnsmasq_dhcp_domain_search']:
+    if domain_search := ctx.get('dnsmasq_dhcp_domain_search'):
         # Record the domain search domain
-        dnsmasq_dhcp_section.append_dhcp_option(
-                DNSMasq_DHCP_Option(
-                    netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                    "119", ctx['dnsmasq_dhcp_domain_search']))
+        return DNSMasq_DHCP_Option(prefix_obj, "119", domain_search)
 
-    return dnsmasq_dhcp_section
+    return None
 
 
-def netbox_process_prefix_into_dnsmasq_dhcp_section_range(ctx: dict, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section:
-    # Print dhcp-range
-    ip_network = ipaddress.ip_network(prefix_obj['prefix'])
+def netbox_process_prefix_into_dnsmasq_dhcp_section_range(ctx: dict,
+                                                          prefix_obj: Netbox_Prefix) -> DNSMasq_DHCP_Range | None:
+    netmask = ip_network(prefix_obj.get_prefix()).netmask
+                                                          
+    if tup := get_range_from_prefix(ctx, prefix_obj.get_prefix()):
+        begin_addr, end_addr = tup
+        return DNSMasq_DHCP_Range(prefix_obj, begin_addr, end_addr, netmask,
+                                  ctx['dnsmasq_dhcp_default_lease_time_range'])
 
-    # Record the DHCP range
-    dnsmasq_dhcp_section.append_dhcp_range(
-            DNSMasq_DHCP_Range(
-                netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                ip_network.network_address + int(ctx['dnsmasq_dhcp_host_range_offset_min']),
-                ip_network.network_address + int(ctx['dnsmasq_dhcp_host_range_offset_max']),
-                ip_network.netmask,
-                ctx['dnsmasq_dhcp_default_lease_time_range']))
-
-    return dnsmasq_dhcp_section
+    return None
 
 
 # Query all IP addresses in the VRF. From each, fetch the associated interface and its MAC
 # Extract all IP addresses in the VRF
-def netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx: dict, prefix_obj, dnsmasq_dhcp_section) -> DNSMasq_DHCP_Section | None:
-    dhcp_host_tuples = netboxers_queries.get_dhcp_host_dict_from_vrf(ctx, prefix_obj['vrf']['id'])
-    if not dhcp_host_tuples:
+def netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx: dict, 
+                                                          prefix_obj: Netbox_Prefix) -> list[DNSMasq_DHCP_Host] | None:
+    host_tuples = get_hosts_from_prefix(ctx, prefix_obj.get_prefix())
+    if not host_tuples:
         return None
 
-    for tup in dhcp_host_tuples:
-        # When Device is set to Offline, skip it
-        if tup['status'] != 'active':
-            print(f"Device or virtual machine associated to the interface \"{tup['host_iface']}\" with MAC {tup['mac_address']} and IP address {tup['ip_addr']} is Offline, skipping.")
+    dhcp_hosts: list[DNSMasq_DHCP_Host] = []
+    for h in host_tuples:
+        (mac_addr, dev_name, if_name, ip, _) = h
+
+        if not mac_addr:
+            print(f"Warning: host {dev_name} with interface {if_name} does not have a MAC address.")
             continue
 
-        # Record the DHCP host
-        dnsmasq_dhcp_section.append_dhcp_host(
-                DNSMasq_DHCP_Host(
-                    netboxers_queries.get_vrf_vlan_name_from_prefix_obj(prefix_obj),
-                    tup['mac_address'], netboxers_helpers.dnsmasq_hostname_cleanup(tup['host_iface']),
-                    tup['ip_addr'], ctx['dnsmasq_dhcp_default_lease_time_host']))
+        host_iface = make_host_iface_name(dev_name, if_name)
+        dhcp_hosts.append(DNSMasq_DHCP_Host(prefix_obj, 
+                                            mac_addr,
+                                            host_iface,
+                                            ip,
+                                            ctx['dnsmasq_dhcp_default_lease_time_host']))
+        
+    return dhcp_hosts
 
-    return dnsmasq_dhcp_section
 
+# Creation of a DHCP section.
+def netbox_process_prefix_into_dnsmasq_dhcp_section(ctx: dict,
+                                                    prefix_obj: Netbox_Prefix) -> DNSMasq_DHCP_Section | None:
+    """Use a Netbox_Prefix as starting point to generate a DNSMasq_DHCP_Section
 
-def netbox_process_prefix_into_dnsmasq_dhcp_section(ctx: dict, prefix_obj) -> DNSMasq_DHCP_Section | None:
-    dnsmasq_dhcp_section = DNSMasq_DHCP_Section()
+    Args:
+        ctx (dict): Context 
+        prefix_obj (_type_): Prefix object.
 
-    # Generate DNSMasq DHCP Section header information
-    dnsmasq_dhcp_section = netbox_generate_dnsmasq_dhcp_section_header_info(prefix_obj, dnsmasq_dhcp_section)
+    Returns:
+        DNSMasq_DHCP_Section | None: fully configured DHCP Section
+    """
+
+    # Create Section from Prefix input
+    dnsmasq_dhcp_section = DNSMasq_DHCP_Section(prefix_obj)
 
     # Get default gateway gateway
-    dnsmasq_dhcp_section = netbox_process_prefix_into_dnsmasq_dhcp_section_gateway(ctx, prefix_obj, dnsmasq_dhcp_section)
+    if dhcp_option := netbox_process_prefix_into_dnsmasq_dhcp_section_gateway(ctx, prefix_obj):
+        dnsmasq_dhcp_section.append_dhcp_option(dhcp_option)
 
     # Get DNS server config
-    dnsmasq_dhcp_section = netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx, prefix_obj, dnsmasq_dhcp_section)
+    if dhcp_option := netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx, prefix_obj):
+        dnsmasq_dhcp_section.append_dhcp_option(dhcp_option)
 
     # Add NTP server config
-    dnsmasq_dhcp_section = netbox_process_prefix_into_dnsmasq_dhcp_section_ntp(ctx, prefix_obj, dnsmasq_dhcp_section)
+    if dhcp_option := netbox_process_prefix_into_dnsmasq_dhcp_section_ntp(ctx, prefix_obj):
+        dnsmasq_dhcp_section.append_dhcp_option(dhcp_option)
 
     # Add Domain search config
-    dnsmasq_dhcp_section = netbox_process_prefix_into_dnsmasq_dhcp_section_domain_search(ctx, prefix_obj, dnsmasq_dhcp_section)
+    if dhcp_option := netbox_process_prefix_into_dnsmasq_dhcp_section_domain_search(ctx, prefix_obj):
+        dnsmasq_dhcp_section.append_dhcp_option(dhcp_option)
 
     # Add IP Range of the DHCP pool
-    dnsmasq_dhcp_section = netbox_process_prefix_into_dnsmasq_dhcp_section_range(ctx, prefix_obj, dnsmasq_dhcp_section)
+    if dhcp_range := netbox_process_prefix_into_dnsmasq_dhcp_section_range(ctx, prefix_obj):
+        dnsmasq_dhcp_section.append_dhcp_range(dhcp_range)
 
     # Query all IP addresses in the VRF. From each, fetch the associated interface and its MAC
     # Extract all IP addresses in the VRF
-    dnsmasq_dhcp_section = netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx, prefix_obj, dnsmasq_dhcp_section)
+    if dhcp_hosts := netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx, prefix_obj):
+        for dh in dhcp_hosts:
+            dnsmasq_dhcp_section.append_dhcp_host(dh)
 
     # return results
     return dnsmasq_dhcp_section

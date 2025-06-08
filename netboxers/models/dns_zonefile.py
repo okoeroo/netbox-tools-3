@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 
 class DNS_Resource_Record:
     def __init__(self, **kwargs):
@@ -9,41 +7,39 @@ class DNS_Resource_Record:
         self.rr_ttl = 86400
         self.rr_data = None
 
+        self.soa_mname = ""
+        self.soa_rname = ""
+        self.soa_serial = ""
+        self.soa_refresh = ""
+        self.soa_retry = ""
+        self.soa_expire = ""
+        self.soa_minimum_ttl = ""
+    
         for key, value in kwargs.items():
-            # Generic
-            if key == 'rr_name':
-                self.rr_name = value.lower()
-            elif key == 'rr_type':
-                self.rr_type = value.upper()
-            elif key == 'rr_class':
-                self.rr_class = value.upper()
-            elif key == 'rr_ttl':
-                self.rr_ttl = value
-            elif key == 'rr_data':
-                self.rr_data = value.lower()
+            match key:
+                # Generic
+                case 'rr_name':
+                    self.rr_name = value.lower()
+                case 'rr_type':
+                    self.rr_type = value.upper()
+                case 'rr_class':
+                    self.rr_class = value.upper()
+                case 'rr_ttl':
+                    self.rr_ttl = value
+                case 'rr_data':
+                    self.rr_data = value.lower()
 
-            # SOA
-            elif key == 'soa_mname':
-                self.soa_mname = self.dns_canonicalize(value).lower()
-            elif key == 'soa_rname':
-                # Funky e-mail: foo\.bar.example.org
-                self.soa_rname = self.dns_canonicalize(value).lower()
-            elif key == 'soa_serial':
-                self.soa_serial = value
-            elif key == 'soa_refresh':
-                self.soa_refresh = value
-            elif key == 'soa_retry':
-                self.soa_retry = value
-            elif key == 'soa_expire':
-                self.soa_expire = value
-            elif key == 'soa_minimum_ttl':
-                self.soa_minimum_ttl = value
+                # SOA
+                case 'soa_mname' | 'soa_rname':
+                    setattr(self, key, self.dns_canonicalize(value).lower())
+                case 'soa_serial' | 'soa_refresh' | 'soa_retry' | 'soa_expire' | 'soa_minimum_ttl':
+                    setattr(self, key, value)
 
-            # MX
-            elif key == 'mx_priority':
-                self.mx_priority = value
-            elif key == 'mx_value':
-                self.mx_data = self.dns_canonicalize(value).lower()
+                # MX
+                case 'mx_priority':
+                    self.mx_priority = value
+                case 'mx_value':
+                    self.mx_data = self.dns_canonicalize(value).lower()
 
 
         # Post processing
@@ -76,15 +72,18 @@ class DNS_Resource_Record:
 
         # Sanity checks
         if self.rr_name is None:
-            raise InputError("DNS_Resource_Record(__init__)", "No rr_name provided")
+            raise ValueError("DNS_Resource_Record(__init__)", "No rr_name provided")
         elif self.rr_type is None:
-            raise InputError("DNS_Resource_Record(__init__)", "No rr_type provided")
+            raise ValueError("DNS_Resource_Record(__init__)", "No rr_type provided")
         elif self.rr_class is None:
-            raise InputError("DNS_Resource_Record(__init__)", "No rr_class provided")
+            raise ValueError("DNS_Resource_Record(__init__)", "No rr_class provided")
         elif self.rr_ttl is None:
-            raise InputError("DNS_Resource_Record(__init__)", "No rr_ttl provided")
+            raise ValueError("DNS_Resource_Record(__init__)", "No rr_ttl provided")
         elif self.rr_data is None:
-            raise InputError("DNS_Resource_Record(__init__)", "No rr_data provided")
+            raise ValueError("DNS_Resource_Record(__init__)", "No rr_data provided")
+
+    def __repr__(self) -> str:
+        return f"{self.rr_name},{self.rr_type},{self.rr_data}"
 
     def dns_canonicalize(self, s):
         if s == '@':
@@ -96,11 +95,8 @@ class DNS_Resource_Record:
             return s
 
     def normalize_name(self, name):
-        return name.lower().replace(" ",
-                                    "_").replace("-",
-                                                 "_").replace("\"",
-                                                              "").replace("\'",
-                                                                          "")
+        return name.lower().translate(str.maketrans({" ": "_", "-": "_", "\"": "", "'": ""}))
+
 
     def __str__(self):
         res = []
@@ -112,6 +108,7 @@ class DNS_Resource_Record:
         res.append(self.rr_data)
 
         return " ".join(res)
+
 
 class DNS_Zonefile:
     def __init__(self):

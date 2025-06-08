@@ -8,8 +8,17 @@ import errno
 import ipaddress
 
 
+
 ### Sanity checks: on failure, makes no sense to continue
 def sanity_checks(ctx):
+    # Defaults
+    if not ctx.get('dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'):
+        ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'] = 'net_default_gateway'
+    
+    if not ctx.get('dnsmasq_dhcp_selected_range_in_prefix_by_tag'):
+        ctx['dnsmasq_dhcp_selected_range_in_prefix_by_tag'] = 'net_dhcp_range'
+
+    # Checks
     if ctx['generic_authkey'] is None:
         print("No Netbox authentication key provided")
         return False
@@ -41,6 +50,15 @@ def sanity_checks(ctx):
             sys.exit(1)
 
         ctx['dnsmasq_dhcp_override_dns_server'] = ipaddress.ip_address(ctx['dnsmasq_dhcp_override_dns_server'])
+
+
+    if 'powerdns_rec_zonefile' not in ctx or ctx['powerdns_rec_zonefile'] is None:
+        print("No PowerDNS Recursor output file configured. Use command line CLI flags or \"zonefile\" in the configuration file\"")
+        return False
+
+    if 'powerdns_rec_zonefile_in_addr' not in ctx or ctx['powerdns_rec_zonefile_in_addr'] is None:
+        print("No PowerDNS Recursor output file configured. Use command line CLI flags or \"zonefile_in_addr\" in the configuration file\"")
+        return False
 
 
     # Debug output
@@ -80,6 +98,8 @@ def argparsing(ctx):
                         help="Netbox base URL.",
                         default=None,
                         type=str)
+
+    # DNSMasq DHCP
     parser.add_argument("-ltr", "--dhcp-default-lease-time-range",
                         dest='dhcp_default_lease_time_range',
                         help="DHCP Default Lease Time for a DHCP range.",
@@ -153,32 +173,89 @@ def argparsing(ctx):
                         help="Override DNS Server configuration with provided IP address",
                         default=None,
                         type=str)
+    parser.add_argument("-pit", "--prefix-in-scope-by-tag",
+                        dest='prefix_in_scope_by_tag',
+                        help="Add all prefixes, unless scoped by finding this set tag name to a prefix",
+                        default=None,
+                        type=str)
+    parser.add_argument("-dgpt", "--default-gateway-per-prefix-identified-by-tag",
+                        dest='default_gateway_per_prefix_identified_by_tag',
+                        help="Selector of the default gateway per prefix. The IP address of the default gateway is identified by the configured tag name. Recommended is to use \'net_default_gateway\'",
+                        default=None,
+                        type=str)
+    parser.add_argument("-srpt", "--selected-range-in-prefix-by-tag",
+                        dest='selected_range_in_prefix_by_tag',
+                        help="Selector range in prefix by tag.",
+                        default=None,
+                        type=str)
+
+    # PowerDNS specific
+    parser.add_argument("-d", "--domain",
+                        dest='powerdns_rec_domain',
+                        help="Domain to be used in the configuration for forward and reverse lookup configurations.",
+                        default=None,
+                        type=str)
+    parser.add_argument("-z", "--zonefile",
+                        dest='powerdns_rec_zonefile',
+                        help="Zonefile format to be consumed by Bind or PowerDNS.",
+                        default=None,
+                        type=str)
+    parser.add_argument("-zia", "--zonefile-in-addr",
+                        dest='powerdns_rec_zonefile_in_addr',
+                        help="Zonefile format to be consumed by Bind or PowerDNS, but specifically for the reverse lookups.",
+                        default=None,
+                        type=str)
+    parser.add_argument("-rl", "--relativize",
+                        dest='powerdns_rec_zonefile_relativize',
+                        help="Create relativized names in the zonefile",
+                        action="store_true",
+                        default=True)
+
+    parser.add_argument("-f", "--zone-footer",
+                        dest='powerdns_rec_zonefile_footer',
+                        help="Zonefile footer template.",
+                        default=None,
+                        type=str)
+
 
     args = parser.parse_args()
 
-    ctx['args_verbose']                   = args.verbose
-    ctx['args_configfile']                = args.configfile
-    ctx['args_authkey']                   = args.authkey
-    ctx['args_output_file']               = args.dnsmasq_dhcp_output_file
-    ctx['args_netbox_base_url']           = args.netbox_base_url
-    ctx['args_default_lease_time_range']  = args.dhcp_default_lease_time_range
-    ctx['args_default_lease_time_host']   = args.dhcp_default_lease_time_host
-    ctx['args_host_range_offset_min']     = args.dhcp_host_range_offset_min
-    ctx['args_host_range_offset_max']     = args.dhcp_host_range_offset_max
-    ctx['args_lease_file']                = args.dhcp_lease_file
-    ctx['args_authoritive']               = args.dhcp_authoritive
-    ctx['args_default_domain']            = args.dhcp_default_domain
-    ctx['args_domain_search']             = args.dhcp_domain_search
-    ctx['args_default_ntp_server']        = args.dhcp_default_ntp_server
-    ctx['args_dhcp_boot_filename']        = args.dhcp_boot_filename
-    ctx['args_dhcp_boot_servername']      = args.dhcp_boot_servername
-    ctx['args_dhcp_boot_address']         = args.dhcp_boot_address
-    ctx['args_override_dns_server']       = args.override_dns_server
+    # Generic
+    ctx['args_verbose']                         = args.verbose
+    ctx['args_configfile']                      = args.configfile
+    ctx['args_authkey']                         = args.authkey
+    
+    # DNSMasq DHCP
+    ctx['args_output_file']                     = args.dnsmasq_dhcp_output_file
+    ctx['args_netbox_base_url']                 = args.netbox_base_url
+    ctx['args_default_lease_time_range']        = args.dhcp_default_lease_time_range
+    ctx['args_default_lease_time_host']         = args.dhcp_default_lease_time_host
+    ctx['args_host_range_offset_min']           = args.dhcp_host_range_offset_min
+    ctx['args_host_range_offset_max']           = args.dhcp_host_range_offset_max
+    ctx['args_lease_file']                      = args.dhcp_lease_file
+    ctx['args_authoritive']                     = args.dhcp_authoritive
+    ctx['args_default_domain']                  = args.dhcp_default_domain
+    ctx['args_domain_search']                   = args.dhcp_domain_search
+    ctx['args_default_ntp_server']              = args.dhcp_default_ntp_server
+    ctx['args_dhcp_boot_filename']              = args.dhcp_boot_filename
+    ctx['args_dhcp_boot_servername']            = args.dhcp_boot_servername
+    ctx['args_dhcp_boot_address']               = args.dhcp_boot_address
+    ctx['args_override_dns_server']             = args.override_dns_server
+    ctx['args_prefix_in_scope_by_tag']          = args.prefix_in_scope_by_tag
+    ctx['args_default_gateway_per_prefix_identified_by_tag'] = args.default_gateway_per_prefix_identified_by_tag
+    ctx['args_selected_range_in_prefix_by_tag'] = args.selected_range_in_prefix_by_tag
+
+    # PowerDNS Rec
+    ctx['args_zonefile']                        = args.powerdns_rec_zonefile
+    ctx['args_zonefile_in_addr']                = args.powerdns_rec_zonefile_in_addr
+    ctx['args_zonefile_relativize']             = args.powerdns_rec_zonefile_relativize
+    ctx['args_zonefile_footer']                 = args.powerdns_rec_zonefile_footer
+
 
     return ctx
 
 
-def parse_config_section(ctx, config, section):
+def parse_config_section(ctx: dict, config, section):
     if section not in config.sections():
         print(f"Warning: Configuration file does not have a \"{section}\" section")
         return ctx
@@ -220,6 +297,7 @@ def parse_config(ctx: dict) -> dict:
 
     ctx = parse_config_section(ctx, config, 'generic')
     ctx = parse_config_section(ctx, config, 'dnsmasq_dhcp')
+    ctx = parse_config_section(ctx, config, 'powerdns_rec')
     ctx = parse_config_prefixes(ctx, config)
 
     return ctx
