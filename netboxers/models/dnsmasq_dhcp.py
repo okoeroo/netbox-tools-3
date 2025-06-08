@@ -15,6 +15,9 @@ class DNSMasq_DHCP_Generic_Switchable:
         else:
             return f"{self.name}={self.value}"
 
+    def __repr__(self) -> str:
+        return self.__str__()
+
 
 class DNSMasq_DHCP_Option:
     def __init__(self, 
@@ -90,6 +93,13 @@ class DNSMasq_DHCP_Option:
         res.append(str(self.get_value()))
 
         return f"dhcp-option={",".join(res)}  {self.get_comment()}"
+    
+    def __repr__(self) -> str:
+        return " ".join([
+            "DNSMasq_DHCP_Option:",
+            str(self.get_option()),
+            str(self.get_value())
+        ])
 
 
 class DNSMasq_DHCP_Range:
@@ -166,6 +176,16 @@ class DNSMasq_DHCP_Range:
 
         return f"dhcp-range={",".join(res)}"
 
+    def __repr__(self) -> str:
+        return " ".join([
+            "DNSMasq_DHCP_Range:",
+            str(self.get_range_min()),
+            str(self.get_range_max()),
+            str(self.get_netmask()),
+            str(self.get_lease_time())
+        ])
+            
+
 
 class DNSMasq_DHCP_Host:
     def __init__(self, 
@@ -241,9 +261,19 @@ class DNSMasq_DHCP_Host:
 
         return f"dhcp-host={",".join(res)}"
 
+    def __repr__(self) -> str:
+        return " ".join([
+            "DNSMasq_DHCP_Host:",
+            str(self.get_mac_address()),
+            str(self.get_hostname()),
+            str(self.get_ip_address()),
+            str(self.get_lease_time())
+        ])
+
 
 class DNSMasq_DHCP_Section:
     def __init__(self, prefix_obj: Netbox_Prefix):
+        self.prefix_obj = prefix_obj
         self.scope = prefix_obj.get_scope()
         self.site = prefix_obj.get_site()
         self.role = prefix_obj.get_role()
@@ -280,6 +310,9 @@ class DNSMasq_DHCP_Section:
     def set_prefix(self, prefix):
         self.prefix = prefix
 
+    def get_prefix(self) -> str:
+        return str(self.prefix_obj.get_prefix())
+
     def append_dhcp_option(self, dhcp_option: DNSMasq_DHCP_Option):
         self.dhcp_options.append(dhcp_option)
 
@@ -291,7 +324,6 @@ class DNSMasq_DHCP_Section:
 
     def get_vlan_short(self) -> str:
         return f"vlan_{self.vlan_id}"
-
 
     def get_header(self):
         # Example
@@ -333,6 +365,15 @@ class DNSMasq_DHCP_Section:
     def get_hosts(self):
         return self.dhcp_hosts
 
+    def __repr__(self) -> str:
+        return " ".join([
+            f"DNSMasq_DHCP_Section:",
+            f"prefix: {self.get_prefix()}",
+            f"options: {len(self.dhcp_options)}",
+            f"ranges: {len(self.dhcp_ranges)}",
+            f"hosts: {len(self.dhcp_hosts)}"
+        ])
+
 
 class DNSMasq_DHCP_Config:
     def __init__(self):
@@ -373,4 +414,6 @@ class DNSMasq_DHCP_Config:
 
         return "\n".join(res)
 
+    def __repr__(self) -> str:
+        return f"DNSMasq_DHCP_Config: generic switches ({len(self.dhcp_config_generic_switches)}), sections: ({len(self.dhcp_config_sections)})"
 
