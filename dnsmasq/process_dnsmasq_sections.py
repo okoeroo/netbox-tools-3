@@ -97,7 +97,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_hosts(ctx: dict,
         (mac_addr, dev_name, if_name, ip, _) = h
 
         if not mac_addr:
-            print("host {dev_name} with interface {if_name} does not have a MAC address.")
+            print(f"Warning: host {dev_name} with interface {if_name} does not have a MAC address.")
             continue
 
         host_iface = make_host_iface_name(dev_name, if_name)
