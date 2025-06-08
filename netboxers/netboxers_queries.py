@@ -2,8 +2,7 @@
 
 import requests
 from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address, ip_interface
-
-from netboxers import netboxers_helpers
+from netboxers.models.netbox import Netbox_Prefix
 from typing import Any
 
 
@@ -300,3 +299,22 @@ def cache_netbox_query_list(ctx: dict,
         return requested
     
     return netbox_query_list(ctx, subquery)
+
+
+def fetch_active_prefixes(ctx: dict) -> list[Netbox_Prefix]:
+    # Get prefixes
+    prefixes = cache_netbox_query_list(ctx, "ipam/prefixes/")
+
+    if not prefixes:
+        raise ValueError("No prefixes found in netbox to complete")
+
+    # Select which prefixes to work on
+    res = []
+    for p in prefixes:
+        np = Netbox_Prefix(p)
+        if np.is_active():
+            res.append(np)
+        else:
+            print(f"Notice: skipping prefix \"{np.get_prefix()} due to configured filter constrains.")
+    return res
+    

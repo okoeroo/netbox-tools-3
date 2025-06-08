@@ -5,7 +5,8 @@ from ipaddress import IPv4Address, IPv6Address, IPv4Interface, IPv6Interface, ip
 from netboxers.netboxers_helpers import make_iface_dot_host_name
 from netboxers.netboxers_queries import cache_netbox_query_list, \
                                         get_status_of_devvm_from_ipaddresses_obj_from_dev_vm_list, \
-                                        get_hosts_from_prefix
+                                        get_hosts_from_prefix, \
+                                        fetch_active_prefixes
 from netboxers.models.netbox import Netbox_Prefix
 from netboxers.models.dns_zonefile import DNS_Zonefile, DNS_Resource_Record
 
@@ -35,24 +36,6 @@ def create_zone_defaults(ctx: dict) -> DNS_Zonefile:
     zo.add_rr(rr)
     return zo
 
-
-def fetch_active_prefixes(ctx: dict) -> list[Netbox_Prefix]:
-    # Get prefixes
-    prefixes = cache_netbox_query_list(ctx, "ipam/prefixes/")
-
-    if not prefixes:
-        raise ValueError("No prefixes found in netbox to complete")
-
-    # Select which prefixes to work on
-    res = []
-    for p in prefixes:
-        np = Netbox_Prefix(p)
-        if np.is_active():
-            res.append(np)
-        else:
-            print(f"Notice: skipping prefix \"{np.get_prefix()} due to configured filter constrains.")
-    return res
-    
 
 def get_device_or_virtualmachine_obj(ctx: dict, interface_obj: dict) -> dict | None:
     # Get device or virtualmachine object associated to the interface object.
