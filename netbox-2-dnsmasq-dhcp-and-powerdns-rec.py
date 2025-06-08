@@ -3,7 +3,7 @@
 import sys
 
 from dnsmasq.process_prefixes_to_dnsmasq import netbox_to_dnsmasq_dhcp_config
-from dnsmasq.configuration import argparsing, parse_config, sanity_checks
+from netboxers.configuration import argparsing, parse_config, sanity_checks
 from netboxers.netboxers_queries import prefill_cache
 from netboxers.netboxers_helpers import get_ctx, test_write_to_ddo_fh
 from netboxers.models.dnsmasq_dhcp import *
