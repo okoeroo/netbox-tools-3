@@ -42,29 +42,3 @@ class Netbox_Prefix:
         if not tags: return None
         return [t.get('name') for t in tags]
 
-
-def filter_processing_of_prefix(ctx: dict, prefix_obj: Netbox_Prefix) -> bool:
-    """_summary_
-        This is a filter to apply to a prefix to see if it must be filtered.
-
-    Args:
-        ctx (dict): _description_
-        prefix_obj (Netbox_Prefix): _description_
-
-    Returns:
-        bool: True means filter this prefix, False means don't filter.
-    """
-
-    if ctx.get('dnsmasq_dhcp_prefix_in_scope_by_tag'):
-        tags = prefix_obj.get_tags()
-        if not tags:
-            return True
-        if ctx.get('dnsmasq_dhcp_prefix_in_scope_by_tag') not in tags:
-            return True
-
-    if not prefix_obj.is_active():
-        return True
-        
-    return False
-
-

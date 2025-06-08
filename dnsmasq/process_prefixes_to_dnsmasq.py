@@ -3,23 +3,21 @@
 from dnsmasq import process_dnsmasq_sections
 from netboxers import netboxers_helpers
 from netboxers.netboxers_queries import fetch_active_prefixes
-from netboxers.models.netbox import Netbox_Prefix, filter_processing_of_prefix
+from netboxers.models.netbox import Netbox_Prefix
 from netboxers.models.dnsmasq_dhcp import DNSMasq_DHCP_Config, DNSMasq_DHCP_Generic_Switchable
 
 
 def netbox_process_prefixes_into_dnsmasq_dhcp_config(ctx: dict, dnsmasq_dhcp_config: DNSMasq_DHCP_Config) -> DNSMasq_DHCP_Config:
     # Select which prefixes to work on
-    ready_to_process_prefixes: list[Netbox_Prefix] = fetch_active_prefixes(ctx)
-    for prefix_obj in ready_to_process_prefixes:
-        
-        # Filter
-        if filter_processing_of_prefix(ctx, prefix_obj):
-            print(f"Notice: skipping prefix \"{prefix_obj.get_prefix()} due to configured filter constrains.")
-            continue
-        else:
-            # Add to work list
-            ready_to_process_prefixes.append(prefix_obj)
-                
+    active_prefixes: list[Netbox_Prefix] = fetch_active_prefixes(ctx)
+    dhcp_prefix_tag = ctx.get('dnsmasq_dhcp_prefix_in_scope_by_tag') 
+    if dhcp_prefix_tag:
+        ready_to_process_prefixes = [prefix for prefix in active_prefixes 
+                                                if prefix.get_tags() and dhcp_prefix_tag in prefix.get_tags()]
+    else:
+        ready_to_process_prefixes = active_prefixes
+
+   
     # Work on these
     for p in ready_to_process_prefixes:
         # Use a Netbox_Prefix to create a DNSMasq_DHCP_Section
