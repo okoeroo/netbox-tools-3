@@ -4,12 +4,15 @@ import sys
 
 from dnsmasq.process_prefixes_to_dnsmasq import netbox_to_dnsmasq_dhcp_config
 from dnsmasq.configuration import argparsing, parse_config, sanity_checks
+from netboxers.netboxers_queries import prefill_cache
 from netboxers.netboxers_helpers import get_ctx, test_write_to_ddo_fh
 from netboxers.models.dnsmasq_dhcp import *
 
 
 ### Main
 def main(ctx: dict):
+    ctx = prefill_cache(ctx)
+
     try:
         # Test if writing is possible of results
         test_write_to_ddo_fh(ctx)
@@ -18,11 +21,7 @@ def main(ctx: dict):
         return
 
     print("Netbox to DNSMasq DHCP config")
-    try:
-        netbox_to_dnsmasq_dhcp_config(ctx)
-    except Exception as err:
-        print(f"Error: {err}")
-        sys.exit(1)
+    netbox_to_dnsmasq_dhcp_config(ctx)
 
 
 ### Start up
