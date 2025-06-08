@@ -2,21 +2,15 @@
 
 from dnsmasq import process_dnsmasq_sections
 from netboxers import netboxers_helpers
+from netboxers.netboxers_queries import fetch_active_prefixes
 from netboxers.models.netbox import Netbox_Prefix, filter_processing_of_prefix
 from netboxers.models.dnsmasq_dhcp import DNSMasq_DHCP_Config, DNSMasq_DHCP_Generic_Switchable
 
 
 def netbox_process_prefixes_into_dnsmasq_dhcp_config(ctx: dict, dnsmasq_dhcp_config: DNSMasq_DHCP_Config) -> DNSMasq_DHCP_Config:
-    # Get prefixes
-    prefixes = netboxers_helpers.query_netbox(ctx, "ipam/prefixes/")
-
-    if prefixes['count'] == 0:
-        raise ValueError("No prefixes found in netbox to complete")
-
     # Select which prefixes to work on
-    ready_to_process_prefixes: list[Netbox_Prefix] = []
-    for p in prefixes['results']:
-        prefix_obj = Netbox_Prefix(p)
+    ready_to_process_prefixes: list[Netbox_Prefix] = fetch_active_prefixes(ctx)
+    for prefix_obj in ready_to_process_prefixes:
         
         # Filter
         if filter_processing_of_prefix(ctx, prefix_obj):
