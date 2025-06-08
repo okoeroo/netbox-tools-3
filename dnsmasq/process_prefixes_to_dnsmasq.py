@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from dnsmasq.process_dnsmasq_sections import netbox_process_prefix_into_dnsmasq_dhcp_section
-from netboxers import netboxers_helpers
+from netboxers.netboxers_helpers import write_data_to_file
 from netboxers.netboxers_queries import fetch_active_prefixes
 from netboxers.models.netbox import Netbox_Prefix
 from netboxers.models.dnsmasq_dhcp import DNSMasq_DHCP_Config, DNSMasq_DHCP_Generic_Switchable
@@ -97,8 +97,5 @@ def netbox_to_dnsmasq_dhcp_config(ctx: dict):
     # Get prefixes and process each
     dnsmasq_dhcp_config = netbox_process_prefixes_into_dnsmasq_dhcp_config(ctx, dnsmasq_dhcp_config)
 
-    # Truncate and open file cleanly
-    netboxers_helpers.write_to_ddo_fh(ctx, None)
-
     ## Output DNSMasq Config to file
-    netboxers_helpers.write_to_ddo_fh(ctx, str(dnsmasq_dhcp_config))
+    write_data_to_file(ctx.get('dnsmasq_dhcp_output_file'), str(dnsmasq_dhcp_config))

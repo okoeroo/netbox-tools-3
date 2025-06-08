@@ -18,28 +18,15 @@ def make_iface_dot_host_name(dev_name: str, if_name: str) -> str:
     return f"{sanitize(if_name)}.{sanitize(dev_name)}"
 
 
-def test_write_to_ddo_fh(ctx: dict):
-    # Truncate file
-    if ctx['dnsmasq_dhcp_output_file'] is not None:
-        open(ctx['dnsmasq_dhcp_output_file'], 'w').close()
-        return
-
-
-def write_to_ddo_fh(ctx: dict, s: str | None):
-    # Truncate file
-    if s is None and ctx['dnsmasq_dhcp_output_file'] is not None:
-        open(ctx['dnsmasq_dhcp_output_file'], 'w').close()
-        return
-
-    # Print or write
-    if ctx['dnsmasq_dhcp_output_file'] is None:
+def write_data_to_file(filepath: str | None, s: str) -> None:
+    # No file, print only
+    if filepath is None:
         print(s)
-    else:
-        with open(ctx['dnsmasq_dhcp_output_file'], 'a') as the_file:
-            if s is None:
-                the_file.write(os.linesep)
-            else:
-                the_file.write(s + os.linesep)
+        return
+
+    # Write to file
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(s)
 
 
 def get_ctx():

@@ -2,7 +2,7 @@ from pathlib import Path
 import ipaddress
 from ipaddress import IPv4Address, IPv6Address, IPv4Interface, IPv6Interface, ip_interface, ip_address
 
-from netboxers.netboxers_helpers import make_iface_dot_host_name
+from netboxers.netboxers_helpers import make_iface_dot_host_name, write_data_to_file
 from netboxers.netboxers_queries import cache_netbox_query_list, \
                                         get_status_of_devvm_from_ipaddresses_obj_from_dev_vm_list, \
                                         get_hosts_from_prefix, \
@@ -117,19 +117,16 @@ def read_zonefile_footer_file(ctx: dict) -> str | None:
 
 
 def write_zonefile(ctx: dict, zo: DNS_Zonefile, footer: str | None) -> None:
+    l = []
+    l.append(str(zo))
+    if footer:
+        l.append(footer)
+
+    s = "\n\n".join(l)
 
     # Write zonefile
-    f = open(ctx['powerdns_rec_zonefile'], 'w')
-
-    # Write the zonefile data to file
-    f.write(str(zo))
-    f.write("\n")
-
-    # Add footer to zonefile
-    if footer is not None:
-        f.write(footer)
-
-    f.close()
+    write_data_to_file(ctx['powerdns_rec_zonefile'], s)
+    
 
 
 ### WORK IN PROGRESS 192.168.x.x only
@@ -231,10 +228,7 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 
 
     # Write zonefile
-    with open(ctx['powerdns_rec_zonefile_in_addr'], 'w') as f:
-        # Write the zonefile data to file
-        f.write(str(zo))
-        f.write("\n")
+    write_data_to_file(ctx.get('powerdns_rec_zonefile_in_addr'), str(zo))
 
 
 def ip_range_iterator(start: str, end: str):
