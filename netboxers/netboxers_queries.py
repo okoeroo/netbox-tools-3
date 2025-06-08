@@ -64,19 +64,6 @@ def query_netbox(ctx: dict, query: str, req_parameters: dict | None = None):
     return response
 
 
-def netbox_query_obj(ctx: dict,
-                     query: str,
-                     **kwargs: Any) -> dict | None:
-    # Setup
-    parameters = dict(kwargs)
-
-    # Query
-    result = query_netbox(ctx, query, parameters)
-    
-    # Result
-    return result
-                     
-
 # Generic query
 def netbox_query_list(ctx: dict,
                       subquery: str,
@@ -209,19 +196,6 @@ def get_hosts_from_prefix(ctx: dict,
     return hosts_list
 
 
-def get_status_of_devvm_from_ipaddresses_obj(ctx: dict, ip_addr_obj: dict):
-    obj = query_netbox(ctx, ip_addr_obj['assigned_object']['url'])
-
-    if 'device' in obj:
-        dev = query_netbox(ctx, obj['device']['url'])
-        return dev['status']['value']
-    elif 'virtual_machine' in obj:
-        vm = query_netbox(ctx, obj['virtual_machine']['url'])
-        return vm['status']['value']
-    else:
-        raise ValueError("Assigned object is not a device nor a virtual_machine.")
-
-
 def get_status_of_devvm_from_ipaddresses_obj_from_dev_vm_list(ctx: dict, 
                                                               ip_addr_obj: dict, 
                                                               devices: list[dict] | None, 
@@ -250,23 +224,6 @@ def get_status_of_devvm_from_ipaddresses_obj_from_dev_vm_list(ctx: dict,
         return None
 
     return match['status']['value']
-
-
-## Based on the mac address fetch a device.
-## The device can be a virtual machine or device
-def fetch_devices_from_mac_address(ctx: dict, mac_address: str) -> dict | None:
-    parameters = {}
-    parameters['mac_address'] = mac_address
-
-    # Device or VM?
-    devices = query_netbox(ctx, "dcim/devices/", parameters)
-    if devices['count'] == 0:
-        devices = query_netbox(ctx, "virtualization/virtual-machines/", parameters)
-        if devices['count'] == 0:
-            # Not in Database...
-            return None
-
-    return devices
 
 
 # Fetch data which is useful multiple times.

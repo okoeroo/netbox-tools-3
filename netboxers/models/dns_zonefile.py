@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 
 class DNS_Resource_Record:
     def __init__(self, **kwargs):
@@ -97,11 +95,8 @@ class DNS_Resource_Record:
             return s
 
     def normalize_name(self, name):
-        return name.lower().replace(" ",
-                                    "_").replace("-",
-                                                 "_").replace("\"",
-                                                              "").replace("\'",
-                                                                          "")
+        return name.lower().translate(str.maketrans({" ": "_", "-": "_", "\"": "", "'": ""}))
+
 
     def __str__(self):
         res = []
@@ -113,6 +108,7 @@ class DNS_Resource_Record:
         res.append(self.rr_data)
 
         return " ".join(res)
+
 
 class DNS_Zonefile:
     def __init__(self):

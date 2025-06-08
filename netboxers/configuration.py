@@ -218,8 +218,6 @@ def argparsing(ctx):
                         type=str)
 
 
-
-
     args = parser.parse_args()
 
     # Generic

@@ -244,12 +244,9 @@ def ip_range_iterator(start: str, end: str):
         yield ip_address(ip_int)
 
 
-def is_ip_interface(s: str):
-    try:
-        ip = ip_interface(s)
-        return ip.network.prefixlen != ip.max_prefixlen
-    except ValueError:
-        return "invalid"
+def is_ip_interface(s: str) -> bool:
+    ip = ip_interface(s)
+    return ip.network.prefixlen != ip.max_prefixlen
 
 
 def create_rr_ptr_for_reserved_address(ip_addr: IPv4Address | IPv6Address | str,

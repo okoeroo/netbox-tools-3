@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import re
 from ipaddress import ip_interface, ip_network
 from netboxers.models.netbox import Netbox_Prefix
 from netboxers.models.dnsmasq_dhcp import   DNSMasq_DHCP_Section, \
