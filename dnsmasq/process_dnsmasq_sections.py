@@ -42,10 +42,7 @@ def netbox_process_prefix_into_dnsmasq_dhcp_section_dns(ctx: dict,
         print(f"Warning: No dns name set with the ip address with the tag \'{ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag']}\' configured for prefix {prefix_obj.get_prefix()}")
         return None
 
-    # Parse to check if the input is OK
-    ip = ip_interface(dns)
-
-    return DNSMasq_DHCP_Option(prefix_obj, "6", str(ip.ip))
+    return DNSMasq_DHCP_Option(prefix_obj, "6", str(dns.ip))
 
 
 # Get ntp from the configuration file for the prefix

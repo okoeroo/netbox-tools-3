@@ -111,7 +111,7 @@ def get_net_default_gateway_from_prefix(ctx: dict,
 
 
 def get_dns_from_net_default_gateway_from_prefix(ctx: dict,
-                                                 prefix: IPv4Network | IPv6Network) -> str | None:
+                                                 prefix: IPv4Network | IPv6Network) -> IPv4Interface | IPv6Interface | None:
     """Get the dns-name value set to the ip-address found in the prefix with the
     tag set in the context with the value for
     'dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'
@@ -127,8 +127,10 @@ def get_dns_from_net_default_gateway_from_prefix(ctx: dict,
                            "ipam/ip-addresses/", 
                            parent = str(prefix), 
                            tag = ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'])
-
-    return results[0]['dns_name'] if results else None
+    if results:
+        ip_str = results[0]['dns_name']
+        return ip_interface(ip_str)
+    return None
 
 
 def get_range_from_prefix(ctx: dict,
@@ -151,8 +153,16 @@ def get_range_from_prefix(ctx: dict,
 
 def get_assigned_interface_from_ip_address(ctx: dict, ip_addr: dict) -> dict | None:
     assigned_id = ip_addr.get('assigned_object', {}).get('id')
-    if assigned_id:
-        return next((i for i in ctx['cache']['dcim/interfaces/'] if i['id'] == assigned_id), None)
+    assigned_object_type = ip_addr.get('assigned_object_type', {})
+    if assigned_object_type == 'dcim.interface':
+        if assigned_id:
+            return next((i for i in ctx['cache']['dcim/interfaces/'] if i['id'] == assigned_id), None)
+    elif assigned_object_type == 'virtualization.vminterface':
+        if assigned_id:
+            return next((i for i in ctx['cache']['virtualization/interfaces/'] if i['id'] == assigned_id), None)
+    else:
+        print("--------------------", assigned_object_type)
+
     return None
 
 
@@ -235,6 +245,7 @@ def prefill_cache(ctx: dict) -> dict:
     endpoints = [
         "dcim/devices/",
         "virtualization/virtual-machines/",
+        "virtualization/interfaces/",
         "dcim/interfaces/",
         "ipam/prefixes/",
         "ipam/ip-addresses/",
