@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import requests
-from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address, ip_interface
+from ipaddress import IPv4Network, IPv6Network, IPv4Address, IPv6Address, IPv4Interface, IPv6Interface, ip_interface
 from netboxers.models.netbox import Netbox_Prefix
 from typing import Any
 
@@ -93,7 +93,7 @@ def netbox_query_list(ctx: dict,
 
 # Default gateway based on a selector.
 def get_net_default_gateway_from_prefix(ctx: dict, 
-                                        prefix: IPv4Network | IPv6Network) -> str | None:
+                                        prefix: IPv4Network | IPv6Network) -> IPv4Interface | IPv6Interface | None:
     """Get the ip-address found in the prefix with the tag set in the context
     with the value for
     'dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'
@@ -103,24 +103,24 @@ def get_net_default_gateway_from_prefix(ctx: dict,
         prefix (IPv4Network | IPv6Network): Prefix in the form 192.168.1.0/24
 
     Returns:
-        str | None: ip address or None
+        IPv4Interface | IPv6Interface | None: ip interface or None
     """
 
-    requested = cache_netbox_query_list(ctx, "ipam/ip-addresses/")
-    
-    if unfiltered := cache_netbox_query_list(ctx, "ipam/ip-addresses/"):
-        with_tag = [d for d in unfiltered if d['tag']['value'] == ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag']]
+    requested_addrs = cache_netbox_query_list(ctx, "ipam/ip-addresses/")
+    if not requested_addrs:
+        return None
 
-        print(with_tag)
-    
+    for ip_addr in requested_addrs:
+        ip_iface = ip_interface(ip_addr["address"])
+
+        if ip_iface not in prefix:
+            continue
+
+        for tag in ip_addr.get("tags", []):
+            if tag["name"] == ctx["dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag"]:
+                return ip_iface
+
     return None
-    
-    results = netbox_query_list(ctx, 
-                           "ipam/ip-addresses/", 
-                           parent = str(prefix), 
-                           tag = ctx['dnsmasq_dhcp_default_gateway_per_prefix_identified_by_tag'])
-
-    return results[0]['address'] if results else None
 
 
 def get_dns_from_net_default_gateway_from_prefix(ctx: dict,
