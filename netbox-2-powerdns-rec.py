@@ -14,26 +14,16 @@ from powerdnsrec.dnsprocessing import powerdns_recursor_zonefile, \
 ### Main
 def main(ctx):
     ctx = prefill_cache(ctx)
-    print("Info: Cache filled.")
     
     if ctx.get('powerdns_rec_zonefile'):
         print("Netbox to DNS Zonefile")
-        try:
-            zo = powerdns_recursor_zonefile(ctx)
-            footer = read_zonefile_footer_file(ctx)
-            write_zonefile(ctx, zo, footer)
-          
-        except Exception as err:
-            print(f"Error: {err}")
-            sys.exit(1)
+        zo = powerdns_recursor_zonefile(ctx)
+        footer = read_zonefile_footer_file(ctx)
+        write_zonefile(ctx, zo, footer)
 
     if ctx.get('powerdns_rec_zonefile_in_addr'):
         print("Netbox to DNS Zonefile for reverse lookups")
-        try:
-            powerdns_recursor_zoneing_reverse_lookups(ctx)
-        except Exception as err:
-            print(f"Error: {err}")
-            sys.exit(1)
+        powerdns_recursor_zoneing_reverse_lookups(ctx)
 
 
 ### Start up

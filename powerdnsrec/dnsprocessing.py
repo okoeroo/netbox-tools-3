@@ -69,7 +69,7 @@ def get_device_or_virtualmachine_obj(ctx: dict, interface_obj: dict) -> dict | N
 def get_primary_ip_from_interface(ctx: dict, interface_obj: dict) -> IPv4Interface | IPv6Interface | None:
     # get primary IP address from the interface (through the device configuration)
     devvm = get_device_or_virtualmachine_obj(ctx, interface_obj)
-    if devvm and (addr := devvm.get('primary_ip', {}).get('address')):
+    if devvm and (p_ip := devvm.get('primary_ip')) and (addr := p_ip.get('address')):
         return ip_interface(addr)
     return None
 
