@@ -217,10 +217,13 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 
 
     ## Create PTR records for IP Range addresses.
-    ip_ranges = cache_netbox_query_list(ctx, "ipam/ip-ranges/")
-    if not ip_ranges:
+    unfiltered_ip_ranges = cache_netbox_query_list(ctx, "ipam/ip-ranges/")
+    if not unfiltered_ip_ranges:
         print("Warning: no IP addresses found.")
     else:
+        ip_ranges = [ir for ir in unfiltered_ip_ranges 
+                        if is_active(ir) and 
+                            has_tag(ir, ctx['dnsmasq_dhcp_selected_range_in_prefix_by_tag'])]
         for ip_range in ip_ranges:
             for ip in ip_range_iterator(ip_range['start_address'], ip_range['end_address']):
                 rr = create_rr_ptr_for_reserved_address(ip, "range_ip")
@@ -229,6 +232,14 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
 
     # Write zonefile
     write_data_to_file(ctx.get('powerdns_rec_zonefile_in_addr'), str(zo))
+
+
+def is_active(obj: dict) -> bool:
+    return obj['status']['value'] == 'active'
+
+
+def has_tag(obj: dict, tag_name: str) -> bool:
+    return any(t['name'] == tag_name for t in obj.get('tags', []))
 
 
 def ip_range_iterator(start: str, end: str):
