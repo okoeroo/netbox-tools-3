@@ -92,7 +92,7 @@ class DNSMasq_DHCP_Option:
         res.append(str(self.get_option()))
         res.append(str(self.get_value()))
 
-        return f"dhcp-option={",".join(res)}  {self.get_comment()}"
+        return f'dhcp-option={",".join(res)}  {self.get_comment()}'
     
     def __repr__(self) -> str:
         return " ".join([
@@ -174,7 +174,7 @@ class DNSMasq_DHCP_Range:
         res.append(str(self.get_netmask()))
         res.append(str(self.get_lease_time()))
 
-        return f"dhcp-range={",".join(res)}"
+        return f'dhcp-range={",".join(res)}'
 
     def __repr__(self) -> str:
         return " ".join([
@@ -259,7 +259,7 @@ class DNSMasq_DHCP_Host:
         res.append(str(self.get_ip_address()))
         res.append(str(self.get_lease_time()))
 
-        return f"dhcp-host={",".join(res)}"
+        return f'dhcp-host={",".join(res)}'
 
     def __repr__(self) -> str:
         return " ".join([
