@@ -197,7 +197,7 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
         # Handle reserved
         # Will create a new DNS Resource Record with the IP address and reserved tag.
         if ip_addr_obj['status']['value'] == 'reserved': 
-            rr = create_rr_ptr_for_reserved_address(ip_addr_obj['address'], "reserved_ip_address")
+            rr = create_rr_ptr_for_reserved_address(ip_addr_obj['address'], "reserved_ip")
             zo.add_rr(rr)
             continue
         
@@ -223,7 +223,7 @@ def powerdns_recursor_zoneing_reverse_lookups(ctx):
     else:
         for ip_range in ip_ranges:
             for ip in ip_range_iterator(ip_range['start_address'], ip_range['end_address']):
-                rr = create_rr_ptr_for_reserved_address(ip, "range_ip_address")
+                rr = create_rr_ptr_for_reserved_address(ip, "range_ip")
                 zo.add_rr(rr)
 
 
@@ -244,23 +244,32 @@ def is_ip_interface(s: str) -> bool:
 
 
 def create_rr_ptr_for_reserved_address(ip_addr: IPv4Address | IPv6Address | str,
-                                       data: str) -> DNS_Resource_Record:
+                                       prefix_name: str) -> DNS_Resource_Record:
+    def sanitize_ip(ip_obj: IPv4Address | IPv6Address) -> str:
+        return str(ip_obj).replace('.', '_').replace(':', '_')
+    
+    # Reverse the IP address, and it's complicated due to accepting both str and IPv{4,6}Address
     if type(ip_addr) is IPv4Address or type(ip_addr) is IPv6Address:
         rev_ip_addr = ip_addr.reverse_pointer
+        flatten_ip = sanitize_ip(ip_addr)
     elif type(ip_addr) is str:
         if is_ip_interface(ip_addr):
             interface = ip_interface(ip_addr)
             rev_ip_addr = interface.ip.reverse_pointer
+            flatten_ip = sanitize_ip(interface.ip)
         else:
             ip = ip_address(ip_addr)
             rev_ip_addr = ip.reverse_pointer
+            flatten_ip = sanitize_ip(ip)
     else:
         raise ValueError("Error in converting {ip_addr}")
+
+    flatten_data = f"{prefix_name}_{flatten_ip}"
 
     rr = DNS_Resource_Record(
             rr_type = 'PTR',
             rr_name = rev_ip_addr,
-            rr_data = data)
+            rr_data = flatten_data)
     
     return rr
     
