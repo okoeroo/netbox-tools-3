@@ -4,8 +4,10 @@ netboxers/__pycache__
 netboxers/models/__pycache__/
 tags
 netbox.config
+netbox-mikrotik.config
 zonefile.footer
 output-files
 .DS_Store
 output
 test.sh*
+*.swp

@@ -1,0 +1,30 @@
+[generic]
+verbose = true
+netbox_base_url = https://netbox.koeroo.net
+authkey = 1234567abcdef
+
+
+[mikrotik]
+username = chat
+password = gpt
+ipaddress = 192.168.203.232
+
+
+[dhcpv4]
+tag_for_gateway     = net_default_gateway
+tag_for_dns         = net_default_dns
+tag_for_ntp         = net_default_ntp
+tag_for_dhcp_range  = net_dhcp_range
+
+lease_time_range = 600m
+lease_time_host = 90m
+
+host_range_offset_min = 120
+host_range_offset_max = 199
+
+domain = koeroo.lan
+search = koeroo.lan
+
+boot-file-name = netboot.xyz.kpxe
+next-server = 192.168.203.47
+
