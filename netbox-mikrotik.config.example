@@ -7,7 +7,7 @@ authkey = 1234567abcdef
 [mikrotik]
 username = chat
 password = gpt
-ipaddress = 192.168.203.232
+endpoint = 192.168.203.232
 
 
 [dhcpv4]

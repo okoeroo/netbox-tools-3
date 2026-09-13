@@ -77,7 +77,7 @@ def netbox_query_list(ctx: dict,
     results = query_netbox(ctx, subquery, parameters)
 
     # Result
-    return results['results'] if results['count'] > 0 else None
+    return results['results']
 
 
 # Default gateway based on a selector.
@@ -238,47 +238,49 @@ def get_status_of_devvm_from_ipaddresses_obj_from_dev_vm_list(ctx: dict,
 
 
 # Fetch data which is useful multiple times.
-def prefill_cache(ctx: dict) -> dict:
+def prefill_cache(ctx: dict, request_to_cache_endpoints: list | None = None) -> dict:
     ctx['cache'] = {}
 
     print("Info: Loading NetBox data...")
 
-    endpoints = [
-        "dcim/cable-terminations/",
-        "dcim/cables/",
-        "dcim/device-roles/",
-        "dcim/device-types/",
-        "dcim/devices/",
-        "dcim/devices/",
-        "dcim/interface-templates/",
-        "dcim/interfaces/",
-        "dcim/locations/",
-        "dcim/mac-addresses/",
-        "dcim/manufacturers/",
-        "dcim/platforms/",
-        "dcim/regions/",
-        "dcim/site-groups/",
-        "dcim/sites/",
-        "extras/tags/",
-        "ipam/asns/",
-        "ipam/ip-addresses/",
-        "ipam/ip-ranges/",
-        "ipam/prefixes/",
-        "ipam/service-templates/",
-        "ipam/services/",
-        "ipam/vlan-groups/",
-        "ipam/vlans/",
-        "ipam/vrfs/",
-        "virtualization/cluster-groups/",
-        "virtualization/cluster-types/",
-        "virtualization/clusters/",
-        "virtualization/interfaces/",
-        "virtualization/virtual-disks/",
-        "virtualization/virtual-machines/",
-        "wireless/wireless-lan-groups/",
-        "wireless/wireless-lans/",
-        "wireless/wireless-links/",
-    ]
+    if not request_to_cache_endpoints:
+        endpoints = [
+            "dcim/cable-terminations/",
+            "dcim/cables/",
+            "dcim/device-roles/",
+            "dcim/device-types/",
+            "dcim/devices/",
+            "dcim/interface-templates/",
+            "dcim/interfaces/",
+            "dcim/locations/",
+            "dcim/mac-addresses/",
+            "dcim/manufacturers/",
+            "dcim/platforms/",
+            "dcim/regions/",
+            "dcim/site-groups/",
+            "dcim/sites/",
+            "extras/tags/",
+            "ipam/asns/",
+            "ipam/ip-addresses/",
+            "ipam/ip-ranges/",
+            "ipam/prefixes/",
+            "ipam/service-templates/",
+            "ipam/services/",
+            "ipam/vlan-groups/",
+            "ipam/vlans/",
+            "ipam/vrfs/",
+            "virtualization/cluster-groups/",
+            "virtualization/cluster-types/",
+            "virtualization/clusters/",
+            "virtualization/interfaces/",
+            "virtualization/virtual-disks/",
+            "virtualization/virtual-machines/",
+            "wireless/wireless-lan-groups/",
+            "wireless/wireless-lans/",
+            "wireless/wireless-links/",
+        ]
+    else:
+        endpoints = request_to_cache_endpoints
 
     for endpoint in endpoints:
         print(f"Info: Loading: \'{endpoint}\'")
