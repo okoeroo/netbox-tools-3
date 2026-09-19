@@ -11,3 +11,5 @@ output-files
 output
 test.sh*
 *.swp
+__pycache__/
+notes

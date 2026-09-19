@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 import sys
-import json
+
+from printer import printer
 
 from netboxers.configuration_mikrotik import argparsing, parse_config, sanity_checks
 from netboxers.netboxers_queries import prefill_cache, cache_netbox_query_list, netbox_query_list
@@ -10,34 +11,20 @@ from netboxers.models.dnsmasq_dhcp import *
 
 from netboxers.mikrotik import mikrotik_get, mikrotik_patch, mikrotik_put
 from netboxers.mikrotik import mikrotik_pool_netbox_ranges_sync, netbox_get_target_router_device, netbox_get_ip_addresses_with_tag
+from netboxers.mikrotik import netbox_get_ip_ranges_ipv4, netbox_vrf_merge_elements, netbox_dhcp_configs, netbox_dhcp_configs
 import ipaddress
 
 
 ### Main
 def main(ctx):
-#    j_mikro_ip_addrs = mikrotik_get(ctx, "/ip/address")
-#    print(j_mikro_ip_addrs)
-#
-#    # Sync Mikrotik Pools with Netbox ranges
-#    mikrotik_pool_netbox_ranges_sync(ctx)
+    print("========================== netbox 2 mikrotik")
+    mikrotik_pool_netbox_ranges_sync(ctx)
 
-    target_router = netbox_get_target_router_device(ctx)
-    print(json.dumps(target_router, indent=2, default=str))
+    vrfs_merged = netbox_vrf_merge_elements(ctx)
 
+    print("----------------------------------------------------------------")
+    netbox_dhcp_configs(ctx, vrfs_merged)
 
-    print(json.dumps(netbox_get_ip_addresses_with_tag(ctx, "net_default_gateway"), indent=2, default=str))
-    print(json.dumps(netbox_get_ip_addresses_with_tag(ctx, "net_default_ntp"), indent=2, default=str))
-    print(json.dumps(netbox_get_ip_addresses_with_tag(ctx, "net_default_dns"), indent=2, default=str))
-
-
-
-# pseudo
-"""
-
-
-
-
-"""
 
 
 ### Start up
@@ -54,17 +41,17 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Fill the cache
-    cached_endpoints = [
-#            "dcim/devices/",
-#            "dcim/interfaces/",
-            "ipam/ip-addresses/",
+#    cached_endpoints = [
+##            "dcim/devices/",
+##            "dcim/interfaces/",
+#            "ipam/ip-addresses/",
 #            "ipam/prefixes/",
-#            "ipam/vlans/",
+##            "ipam/vlans/",
 #            "ipam/vrfs/",
-#            "virtualization/interfaces/",
-#            "virtualization/virtual-machines/",
-        ]
-    ctx = prefill_cache(ctx, cached_endpoints)
+##            "virtualization/interfaces/",
+##            "virtualization/virtual-machines/",
+#        ]
+#    ctx = prefill_cache(ctx, cached_endpoints)
 
     # Go time
     main(ctx)
