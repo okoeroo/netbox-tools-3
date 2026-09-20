@@ -10,8 +10,7 @@ from netboxers.netboxers_helpers import get_ctx
 from netboxers.models.dnsmasq_dhcp import *
 
 from netboxers.mikrotik import mikrotik_get, mikrotik_patch, mikrotik_put
-from netboxers.mikrotik import mikrotik_pool_netbox_ranges_sync, netbox_get_target_router_device, netbox_get_ip_addresses_with_tag
-from netboxers.mikrotik import netbox_get_ip_ranges_ipv4, netbox_vrf_merge_elements, netbox_dhcp_configs, netbox_dhcp_configs, mikrotik_configure
+from netboxers.mikrotik import netbox_vrf_merge_elements, netbox_dhcp_configs, mikrotik_configure
 import ipaddress
 
 
@@ -20,10 +19,7 @@ def main(ctx):
     vrfs_merged = netbox_vrf_merge_elements(ctx)
     dhcp_configs = netbox_dhcp_configs(ctx, vrfs_merged)
 
-    print("========================== netbox 2 mikrotik")
     mikrotik_configure(ctx, dhcp_configs)
-
-#    dhcp_configs = mikrotik_pool_netbox_ranges_sync(ctx)
 
 
 
