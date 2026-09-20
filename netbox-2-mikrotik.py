@@ -17,13 +17,12 @@ import ipaddress
 
 ### Main
 def main(ctx):
+    vrfs_merged = netbox_vrf_merge_elements(ctx)
+    netbox_dhcp_configs(ctx, vrfs_merged)
+
+    return
     print("========================== netbox 2 mikrotik")
     mikrotik_pool_netbox_ranges_sync(ctx)
-
-    vrfs_merged = netbox_vrf_merge_elements(ctx)
-
-    print("----------------------------------------------------------------")
-    netbox_dhcp_configs(ctx, vrfs_merged)
 
 
 
@@ -34,7 +33,6 @@ if __name__ == "__main__":
     ctx = argparsing(ctx)
     ctx = parse_config(ctx)
 
-    print(ctx)
 
     # Checks
     if not sanity_checks(ctx):

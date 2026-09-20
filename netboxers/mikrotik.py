@@ -2,6 +2,7 @@
 
 from printer import printer
 
+import sys
 import requests
 import ipaddress
 from typing import Any
@@ -102,40 +103,6 @@ def mikrotik_pool_exists(ctx: dict, name: str) -> bool:
 
     return None
 
-
-
-def netbox_get_ip_ranges_ipv4(ctx: dict) -> dict[str, Any]:
-    j_netbox_ip_ranges = netbox_query_list(ctx,
-                                           "ipam/ip-ranges/",
-                                           tag = ctx['dhcpv4_tag_for_dhcp_range'],
-                                           status = "active",
-                                           family = 4)
-    return j_netbox_ip_ranges
-
-
-
-def mikrotik_pool_netbox_ranges_sync(ctx: dict) -> bool:
-    j_netbox_ip_ranges = netbox_get_ip_ranges_ipv4(ctx)
-
-    for ip_range in j_netbox_ip_ranges:
-        begin_ip = ipaddress.ip_interface(ip_range['start_address']).ip
-        end_ip = ipaddress.ip_interface(ip_range['end_address']).ip
-
-        pool_id = mikrotik_pool_exists(ctx, safe_name(f"pool-{ip_range['vrf']['name']}"))
-        if not pool_id:
-            mikrotik_put(ctx,
-                         "/ip/pool",
-                         comment = ip_range['vrf']['description'],
-                         name = safe_name(f"pool-{ip_range['vrf']['name']}"),
-                         ranges = f"{begin_ip}-{end_ip}"
-                         )
-        else:
-            mikrotik_patch(ctx,
-                           f"/ip/pool/{pool_id}",
-                           comment = ip_range['vrf']['description'],
-                           name = safe_name(f"pool-{ip_range['vrf']['name']}"),
-                           ranges = f"{begin_ip}-{end_ip}"
-                           )
 
 
 def netbox_get_target_router_device(ctx: dict) -> dict[str, Any]:
@@ -285,30 +252,78 @@ def netbox_vrf_merge_elements(ctx: dict) -> list[dict[str, Any]]:
     return vrfs
 
 
+def netbox_get_ip_ranges_ipv4(ctx: dict) -> dict[str, Any]:
+    j_netbox_ip_ranges = netbox_query_list(ctx,
+                                           "ipam/ip-ranges/",
+                                           tag = ctx['dhcpv4_tag_for_dhcp_range'],
+                                           status = "active",
+                                           family = 4)
+    return j_netbox_ip_ranges
 
-def netbox_dhcp_configs(ctx: dict, netbox_vrfs_merged: list):
+
+
+def mikrotik_pool_netbox_ranges_sync(ctx: dict) -> bool:
+    j_netbox_ip_ranges = netbox_get_ip_ranges_ipv4(ctx)
+
+    for ip_range in j_netbox_ip_ranges:
+        begin_ip = ipaddress.ip_interface(ip_range['start_address']).ip
+        end_ip = ipaddress.ip_interface(ip_range['end_address']).ip
+
+        pool_id = mikrotik_pool_exists(ctx, safe_name(f"pool-{ip_range['vrf']['name']}"))
+        if not pool_id:
+            mikrotik_put(ctx,
+                         "/ip/pool",
+                         comment = ip_range['vrf']['description'],
+                         name = safe_name(f"pool-{ip_range['vrf']['name']}"),
+                         ranges = f"{begin_ip}-{end_ip}"
+                         )
+        else:
+            mikrotik_patch(ctx,
+                           f"/ip/pool/{pool_id}",
+                           comment = ip_range['vrf']['description'],
+                           name = safe_name(f"pool-{ip_range['vrf']['name']}"),
+                           ranges = f"{begin_ip}-{end_ip}"
+                           )
+
+
+def netbox_get_first_match_by_ip(ctx: dict,
+                                 tag: str,
+                                 vrf_id: int,
+                                 family: int) -> ipaddress.IPv4Interface | ipaddress.IPv6Interface | None:
+    ipaddrs = netbox_query_list(ctx, "ipam/ip-addresses/",
+                                    tag = tag,
+                                    vrf_id = vrf_id,
+                                    family = family)
+    if len(ipaddrs):
+        for ip in ipaddrs:
+            return ipaddress.ip_interface(ip['address'])
+    return None
+
+
+
+def target_router_get_interface_by_ipaddress(ctx: dict,
+                                             ipaddr: ipaddress.IPv4Interface | ipaddress.IPv6Interface) -> dict | None:
+    if not ipaddr:
+        return None
+
     target_router = netbox_get_target_router_device(ctx)
 
-    ip_gateways     = netbox_get_ip_addresses_with_tag(ctx, "net_default_gateway")
-    ip_ntp_servers  = netbox_get_ip_addresses_with_tag(ctx, "net_default_ntp")
-    ip_dns_servers  = netbox_get_ip_addresses_with_tag(ctx, "net_default_dns")
+    if not target_router or not 'interfaces' in target_router or not target_router['interfaces']:
+        print("Error: targer router not properly configured. Missing interface data")
+        return None
 
     for iface in target_router['interfaces']:
-        print(iface)
-        for ip in iface['ipv4']:
-            print(ip)
-            for gateway in ip_gateways:
-                if ip == ipaddress.ip_interface(gateway['address']):
-                    print(f"{ip} is a gateway")
-            for dns in ip_dns_servers:
-                if ip == ipaddress.ip_interface(dns['address']):
-                    print(f"{ip} is a dns server")
-            for ntp in ip_ntp_servers:
-                if ip == ipaddress.ip_interface(ntp['address']):
-                    print(f"{ip} is a ntp server")
+        for iface_ip in iface['ipv4']:
+            if ipaddress.ip_interface(ipaddr).ip == ipaddress.ip_interface(iface_ip).ip:
+                return iface
+        for iface_ip in iface['ipv6']:
+            if ipaddress.ip_interface(ipaddr).ip == ipaddress.ip_interface(iface_ip).ip:
+                return iface
+
+    return None
 
 
-
+def netbox_dhcp_configs(ctx: dict, netbox_vrfs_merged: list):
     dhcp_configs = []
 
     print("************")
@@ -325,30 +340,47 @@ def netbox_dhcp_configs(ctx: dict, netbox_vrfs_merged: list):
                 # Select the range (only support one per prefix)
                 if 'ranges' in vrf:
                     for ra in vrf['ranges']:
-                        print(ra['start_address'])
-                        print(ra['end_address'])
+                        dhcp_config['start_address'] = ra['start_address']
+                        dhcp_config['end_address']   = ra['end_address']
 
-                if 'ipv4addrs' in vrf:
-                    for ipv4 in vrf['ipv4addrs']:
-                        print(ipv4['address'])
+                dhcp_config['gateway'] = netbox_get_first_match_by_ip(ctx,
+                                                                      "net_default_gateway",
+                                                                      vrf['id'],
+                                                                      4)
+                dhcp_config['dns'] = netbox_get_first_match_by_ip(ctx,
+                                                                  "net_default_dns",
+                                                                  vrf['id'],
+                                                                  4)
+                dhcp_config['ntp'] = netbox_get_first_match_by_ip(ctx,
+                                                                  "net_default_ntp",
+                                                                  vrf['id'],
+                                                                  4)
+#                if 'ipv4addrs' in vrf:
+#                    for ipv4 in vrf['ipv4addrs']:
+#                        print(ipv4['address'])
 
-                if 'ipv6addrs' in vrf:
-                    for ipv6 in vrf['ipv6addrs']:
-                        print(ipv4['address'])
+#                if 'ipv6addrs' in vrf:
+#                    for ipv6 in vrf['ipv6addrs']:
+#                        print(ipv4['address'])
 
-                gw = netbox_query_list(ctx, "ipam/ip-addresses/",
-                                        tag = "net_default_gateway",
-                                        vrf_id = vrf['id'],
-                                        family = 4)
-                ntp = netbox_query_list(ctx, "ipam/ip-addresses/",
-                                        tag = "net_default_ntp",
-                                        vrf_id = vrf['id'],
-                                        family = 4)
-                dns = netbox_query_list(ctx, "ipam/ip-addresses/",
-                                        tag = "net_default_dns",
-                                        vrf_id = vrf['id'],
-                                        family = 4)
+                # Match on target router interface details, by looking up the intended gateway.
+                t_router_iface = target_router_get_interface_by_ipaddress(ctx, dhcp_config['gateway'])
+                dhcp_config['targer_router_interface'] = t_router_iface
 
+
+        if not dhcp_config or ('gateway' in dhcp_config and not dhcp_config['gateway']):
+            print("Notice: Ignoring this entry: it has no gateway.")
+            continue
+
+        if not dhcp_config['targer_router_interface']:
+            print("Warning: Ignoring this entry: gateway configuration not matched on target router")
+            continue
+
+        # Add config
+        dhcp_configs.append(dhcp_config)
+
+    print("=>")
+    printer(dhcp_configs)
 
 
 
