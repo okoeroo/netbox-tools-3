@@ -94,14 +94,22 @@ def mikrotik_patch(ctx: dict,
 
 
 # Returns None, or the (first) id it matches
-def mikrotik_pool_exists(ctx: dict, name: str) -> bool:
-    # Get pools
-    j_mikro_pools = mikrotik_get(ctx, "/ip/pool")
-    for m_pool in j_mikro_pools:
-        if m_pool['name'] == name:
-            return m_pool['.id']
-
+def mikrotik_key_val_exists(ctx: dict, locator: str, key: str, val: str) -> bool:
+    mikro_list = mikrotik_get(ctx, locator)
+    for elem in mikro_list:
+        if elem[key] == val:
+            return elem['.id']
     return None
+
+
+# Returns None, or the (first) id it matches
+def mikrotik_name_exists(ctx: dict, locator: str, name: str) -> bool:
+    return mikrotik_key_val_exists(ctx, locator, "name", name)
+
+
+# Returns None, or the (first) id it matches
+def mikrotik_pool_exists(ctx: dict, name: str) -> bool:
+    return mikrotik_name_exists(ctx, "/ip/pool", name)
 
 
 
@@ -269,7 +277,7 @@ def mikrotik_pool_netbox_ranges_sync(ctx: dict) -> bool:
         begin_ip = ipaddress.ip_interface(ip_range['start_address']).ip
         end_ip = ipaddress.ip_interface(ip_range['end_address']).ip
 
-        pool_id = mikrotik_pool_exists(ctx, safe_name(f"pool-{ip_range['vrf']['name']}"))
+        pool_id = mikrotik_name_exists(ctx, "/ip/pool", safe_name(f"pool-{ip_range['vrf']['name']}"))
         if not pool_id:
             mikrotik_put(ctx,
                          "/ip/pool",
@@ -280,7 +288,7 @@ def mikrotik_pool_netbox_ranges_sync(ctx: dict) -> bool:
         else:
             mikrotik_patch(ctx,
                            f"/ip/pool/{pool_id}",
-                           comment = ip_range['vrf']['description'],
+                           comment = ip_range['vrf']['description'] + "_1",
                            name = safe_name(f"pool-{ip_range['vrf']['name']}"),
                            ranges = f"{begin_ip}-{end_ip}"
                            )
@@ -451,7 +459,7 @@ def mikrotik_add_update_pool(ctx: dict, dhcp_config: dict) -> bool:
         begin_ip = dhcp_config['start_address'].ip
         end_ip   = dhcp_config['end_address'].ip
 
-        pool_id = mikrotik_pool_exists(ctx, f"pool-{dhcp_config['targer_router_interface']['name']}")
+        pool_id = mikrotik_name_exists(ctx, "/ip/pool", f"pool-{dhcp_config['targer_router_interface']['name']}")
         if not pool_id:
             mikrotik_put(ctx,
                          "/ip/pool",
@@ -470,11 +478,31 @@ def mikrotik_add_update_pool(ctx: dict, dhcp_config: dict) -> bool:
 def mikrotik_add_update_dhcp_server(ctx: dict, dhcp_config: dict) -> bool:
         dhcp_server = []
         dhcp_server.append(f"/ip dhcp-server add")
+        dhcp_server.append(f"name=dhcp-{dhcp_config['targer_router_interface']['name']}")
         dhcp_server.append(f"address-pool=pool-{dhcp_config['targer_router_interface']['name']}")
         dhcp_server.append(f"interface={dhcp_config['targer_router_interface']['name']}")
-        dhcp_server.append(f"name=dhcp-{dhcp_config['targer_router_interface']['name']}")
         dhcp_server.append(f"comment=\"{dhcp_config['comment']}\"")
         print(f"{" ".join(dhcp_server)}")
+
+        dhcp_server_id = mikrotik_name_exists(ctx, "/ip/dhcp-server", f"dhcp-{dhcp_config['targer_router_interface']['name']}")
+        if not pool_id:
+            mikrotik_put(ctx,
+                         "/ip/dhcp-server",
+                         name = f"dhcp-{dhcp_config['targer_router_interface']['name']}",
+                         address-pool = f"pool-{dhcp_config['targer_router_interface']['name']}",
+                         interface = f"{dhcp_config['targer_router_interface']['name']}",
+                         comment = dhcp_config['comment'],
+                        )
+        else:
+            mikrotik_patch(ctx,
+                           f"/ip/dhcp-server/{dhcp_server_id}",
+                           name = f"dhcp-{dhcp_config['targer_router_interface']['name']}",
+                           address-pool = f"pool-{dhcp_config['targer_router_interface']['name']}",
+                           interface = f"{dhcp_config['targer_router_interface']['name']}",
+                           comment = dhcp_config['comment'],
+                          )
+
+
 
 def mikrotik_add_update_dhcp_server_network(ctx: dict, dhcp_config: dict) -> bool:
         dhcp_server_network = []
@@ -488,4 +516,26 @@ def mikrotik_add_update_dhcp_server_network(ctx: dict, dhcp_config: dict) -> boo
         if 'ntp' in dhcp_config and dhcp_config['ntp']:
             dhcp_server_network.append(f"ntp-server={dhcp_config['ntp'].ip}")
         print(f"{" ".join(dhcp_server_network)}")
+
+        # check if the addresss (subnet here) exists in the dhcp-server network
+        dhcp_server_network_id = mikrotik_key_val_exists(ctx, "/ip/dhcp-server/network", "address", f"{dhcp_config['subnet']}")
+        if not dhcp_server_network_id:
+            mikrotik_put(ctx,
+                         "/ip/dhcp-server/network",
+                         f"address={dhcp_config['subnet']}",
+                         comment = dhcp_config['comment'],
+                         gateway = f"{dhcp_config['gateway'].ip}",
+                         dns-server = f"{dhcp_config['dns'].ip}",
+                         ntp-server = f"{dhcp_config['ntp'].ip}"
+                        )
+        else:
+            mikrotik_patch(ctx,
+                           f"/ip/dhcp-server/network/{dhcp_server_network_id}",
+                           f"address={dhcp_config['subnet']}",
+                           comment = dhcp_config['comment'],
+                           gateway = f"{dhcp_config['gateway'].ip}",
+                           dns-server = f"{dhcp_config['dns'].ip}",
+                           ntp-server = f"{dhcp_config['ntp'].ip}"
+                          )
+
 
