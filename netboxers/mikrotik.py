@@ -306,27 +306,55 @@ def target_router_get_interface_by_ipaddress(ctx: dict,
     if not ipaddr:
         return None
 
+    target_ip = ipaddress.ip_interface(ipaddr).ip
     target_router = netbox_get_target_router_device(ctx)
 
     if not target_router or not 'interfaces' in target_router or not target_router['interfaces']:
         print("Error: targer router not properly configured. Missing interface data")
         return None
 
-    for iface in target_router['interfaces']:
-        for iface_ip in iface['ipv4']:
-            if ipaddress.ip_interface(ipaddr).ip == ipaddress.ip_interface(iface_ip).ip:
-                return iface
-        for iface_ip in iface['ipv6']:
-            if ipaddress.ip_interface(ipaddr).ip == ipaddress.ip_interface(iface_ip).ip:
+    for iface in target_router["interfaces"]:
+        for iface_ip in iface["ipv4"] + iface["ipv6"]:
+            if target_ip == ipaddress.ip_interface(iface_ip).ip:
                 return iface
 
     return None
 
 
-def netbox_dhcp_configs(ctx: dict, netbox_vrfs_merged: list):
-    dhcp_configs = []
 
-    print("************")
+def netbox_fetch_assigned_object(ctx: dict, obj: dict) -> dict | None:
+    interface = None
+    if 'assigned_object_type' not in obj or not obj['assigned_object_type']:
+        return None
+
+    if obj['assigned_object_type'] == 'dcim.interface':
+        interface = netbox_query_list(ctx, "dcim/interfaces",
+                                      id = obj['assigned_object']['id'])
+    elif obj['assigned_object_type'] == 'virtualization.vminterface':
+        interface = netbox_query_list(ctx, "virtualization/interfaces",
+                                      id = obj['assigned_object']['id'])
+    return interface
+
+
+def netbox_fetch_assigned_object_by_ipaddr(ctx: dict,
+                                           vrf_id: int,
+                                           ipaddr: ipaddress.IPv4Interface | ipaddress.IPv6Interface) -> dict | None:
+    if not ipaddr:
+        return None
+
+    ipaddresses = netbox_query_list(ctx, "ipam/ip-addresses",
+                                    vrf_id = vrf_id,
+                                    address = ipaddr.with_prefixlen)
+    if ipaddresses:
+        for ipaddr in ipaddresses:
+            return netbox_fetch_assigned_object(ctx, ipaddr)
+
+    return None
+
+
+
+def netbox_dhcp_configs(ctx: dict, netbox_vrfs_merged: list) -> dict:
+    dhcp_configs = []
 
     # Per VRF, form and merge into configs
     for vrf in netbox_vrfs_merged:
@@ -340,28 +368,30 @@ def netbox_dhcp_configs(ctx: dict, netbox_vrfs_merged: list):
                 # Select the range (only support one per prefix)
                 if 'ranges' in vrf:
                     for ra in vrf['ranges']:
-                        dhcp_config['start_address'] = ra['start_address']
-                        dhcp_config['end_address']   = ra['end_address']
+                        dhcp_config['start_address'] = ipaddress.ip_interface(ra['start_address'])
+                        dhcp_config['end_address']   = ipaddress.ip_interface(ra['end_address'])
 
-                dhcp_config['gateway'] = netbox_get_first_match_by_ip(ctx,
-                                                                      "net_default_gateway",
-                                                                      vrf['id'],
-                                                                      4)
-                dhcp_config['dns'] = netbox_get_first_match_by_ip(ctx,
-                                                                  "net_default_dns",
-                                                                  vrf['id'],
-                                                                  4)
-                dhcp_config['ntp'] = netbox_get_first_match_by_ip(ctx,
-                                                                  "net_default_ntp",
-                                                                  vrf['id'],
-                                                                  4)
+                dhcp_config['gateway'] = netbox_get_first_match_by_ip(ctx, "net_default_gateway", vrf['id'], 4)
+                if dhcp_config['gateway']:
+                    dhcp_config['subnet'] = ipaddress.ip_interface(dhcp_config['gateway']).network
+
+                gateway_interface = netbox_fetch_assigned_object_by_ipaddr(ctx, vrf['id'], dhcp_config['gateway'])
+                if gateway_interface:
+                    dhcp_config['gateway_interface'] = gateway_interface
+
+                dhcp_config['dns'] = netbox_get_first_match_by_ip(ctx, "net_default_dns", vrf['id'], 4)
+
+                dhcp_config['ntp'] = netbox_get_first_match_by_ip(ctx, "net_default_ntp", vrf['id'], 4)
+
 #                if 'ipv4addrs' in vrf:
 #                    for ipv4 in vrf['ipv4addrs']:
 #                        print(ipv4['address'])
-
+#                        ipv4['fetched_interface'] = netbox_fetch_assigned_object(ctx, ipv4)
+#
 #                if 'ipv6addrs' in vrf:
 #                    for ipv6 in vrf['ipv6addrs']:
 #                        print(ipv4['address'])
+#                        ipv6['fetched_interface'] = netbox_fetch_assigned_object(ctx, ipv6)
 
                 # Match on target router interface details, by looking up the intended gateway.
                 t_router_iface = target_router_get_interface_by_ipaddress(ctx, dhcp_config['gateway'])
@@ -381,18 +411,81 @@ def netbox_dhcp_configs(ctx: dict, netbox_vrfs_merged: list):
 
     print("=>")
     printer(dhcp_configs)
+    return dhcp_configs
 
 
+def mikrotik_configure(ctx: dict, dhcp_configs: dict) -> None:
+    # mikrotik configs
+    for dhcp_config in dhcp_configs:
+        if dhcp_config['gateway_interface']:
+            if 'untagged_vlan' in dhcp_config['gateway_interface'][0] and 'display' in dhcp_config['gateway_interface'][0]['untagged_vlan']:
+                comment = dhcp_config['gateway_interface'][0]['untagged_vlan']['display']
+                dhcp_config['comment'] = comment
+            else:
+                comment = dhcp_config['gateway_interface'][0]['display']
+                dhcp_config['comment'] = comment
 
-"""
-/ip pool
-add name=pool-ether2 ranges=192.168.207.155-192.168.207.254
+        # pool
+        mikrotik_add_update_pool(ctx, dhcp_config)
 
-/ip dhcp-server
-add address-pool=pool-ether2 interface=ether2 name=dhcp-ether2
+        # dhcp server
+        mikrotik_add_update_dhcp_server(ctx, dhcp_config)
 
-/ip dhcp-server network
-add address=192.168.207.0/24 dns-server=1.2.3.4 gateway=192.168.207.1 netmask=24 ntp-server=192.168.1.1
-"""
+        # dhcp server network
+        mikrotik_add_update_dhcp_server_network(ctx, dhcp_config)
 
+
+        print("---")
+
+
+def mikrotik_add_update_pool(ctx: dict, dhcp_config: dict) -> bool:
+        if dhcp_config['start_address'] and dhcp_config['end_address']:
+            dhcp_pool = []
+            dhcp_pool.append(f"/ip pool add")
+            dhcp_pool.append(f"name=pool-{dhcp_config['targer_router_interface']['name']}")
+            dhcp_pool.append(f"ranges={dhcp_config['start_address'].ip}-{dhcp_config['end_address'].ip}")
+            dhcp_pool.append(f"comment=\"{dhcp_config['comment']}\"")
+            print(f"{" ".join(dhcp_pool)}")
+
+
+        begin_ip = dhcp_config['start_address'].ip
+        end_ip   = dhcp_config['end_address'].ip
+
+        pool_id = mikrotik_pool_exists(ctx, f"pool-{dhcp_config['targer_router_interface']['name']}")
+        if not pool_id:
+            mikrotik_put(ctx,
+                         "/ip/pool",
+                         comment = dhcp_config['comment'],
+                         name = f"pool-{dhcp_config['targer_router_interface']['name']}",
+                         ranges = f"{begin_ip}-{end_ip}"
+                        )
+        else:
+            mikrotik_patch(ctx,
+                           f"/ip/pool/{pool_id}",
+                           comment = dhcp_config['comment'],
+                           name = f"pool-{dhcp_config['targer_router_interface']['name']}",
+                           ranges = f"{begin_ip}-{end_ip}"
+                          )
+
+def mikrotik_add_update_dhcp_server(ctx: dict, dhcp_config: dict) -> bool:
+        dhcp_server = []
+        dhcp_server.append(f"/ip dhcp-server add")
+        dhcp_server.append(f"address-pool=pool-{dhcp_config['targer_router_interface']['name']}")
+        dhcp_server.append(f"interface={dhcp_config['targer_router_interface']['name']}")
+        dhcp_server.append(f"name=dhcp-{dhcp_config['targer_router_interface']['name']}")
+        dhcp_server.append(f"comment=\"{dhcp_config['comment']}\"")
+        print(f"{" ".join(dhcp_server)}")
+
+def mikrotik_add_update_dhcp_server_network(ctx: dict, dhcp_config: dict) -> bool:
+        dhcp_server_network = []
+        dhcp_server_network.append(f"/ip dhcp-server network add")
+        dhcp_server_network.append(f"address={dhcp_config['subnet']}")
+        dhcp_server_network.append(f"comment=\"{dhcp_config['comment']}\"")
+        if 'gateway' in dhcp_config and dhcp_config['gateway']:
+            dhcp_server_network.append(f"gateway={dhcp_config['gateway'].ip}")
+        if 'dns' in dhcp_config and dhcp_config['dns']:
+            dhcp_server_network.append(f"dns-server={dhcp_config['dns'].ip}")
+        if 'ntp' in dhcp_config and dhcp_config['ntp']:
+            dhcp_server_network.append(f"ntp-server={dhcp_config['ntp'].ip}")
+        print(f"{" ".join(dhcp_server_network)}")
 
