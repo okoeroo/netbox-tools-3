@@ -14,7 +14,10 @@ from netboxers.models.netbox import Netbox_Prefix
 
 
 def safe_name(name: str) -> str:
-    return name.replace("/", "__").replace(" ", "_").replace("*", "_")
+    if not name:
+        return None
+
+    return name.replace("/", "__").replace(" ", "_").replace("*", "_").lower()
 
 
 def mikrotik_get(ctx: dict,
@@ -360,6 +363,54 @@ def netbox_fetch_assigned_object_by_ipaddr(ctx: dict,
     return None
 
 
+def netbox_get_ipaddresses_with_assigned_device_and_iface(ctx: dict, vrf: dict) -> dict | None:
+    vrf_id = vrf['id']
+    ips_by_vrf = []
+
+    ip_addrs_per_vrf = netbox_query_list(
+        ctx,
+        "ipam/ip-addresses/",
+        status = "active",
+        vrf_id = vrf_id
+    )
+
+    for ip in ip_addrs_per_vrf:
+        assigned = ip.get("assigned_object") or {}
+        if ip.get("assigned_object_type") == "dcim.interface":
+            ifaces = netbox_query_list(ctx,
+                                       "dcim/interfaces/",
+                                       id = assigned.get("id"))
+            if not ifaces:
+                continue
+
+            interface = ifaces[0]
+            assigned_obj = interface.get("device")
+            primary_mac = interface.get("primary_mac_address")
+
+        elif ip.get("assigned_object_type") == "virtualization.vminterface":
+            ifaces = netbox_query_list(ctx,
+                                       "virtualization/interfaces/",
+                                       id = assigned.get("id"))
+            if not ifaces:
+                continue
+
+            interface = ifaces[0]
+            assigned_obj = interface.get("virtual_machine")
+            primary_mac = interface.get("primary_mac_address")
+
+        if not primary_mac:
+            continue
+
+        ips_by_vrf.append({
+            "address": ipaddress.ip_interface(ip["address"]).ip,
+            "assigned_obj": safe_name(assigned_obj.get("name")),
+            "interface": safe_name(interface.get("name")),
+            "mac_address": primary_mac['mac_address'],
+            "comment": f"{assigned_obj.get("name")} using {interface.get("name")}"
+        })
+
+    return ips_by_vrf
+
 
 def netbox_dhcp_configs(ctx: dict, netbox_vrfs_merged: list) -> dict:
     dhcp_configs = []
@@ -414,6 +465,11 @@ def netbox_dhcp_configs(ctx: dict, netbox_vrfs_merged: list) -> dict:
             print("Warning: Ignoring this entry: gateway configuration not matched on target router")
             continue
 
+        # Work on IP addresses for this VRF
+        ipaddr_dev_ifaces = netbox_get_ipaddresses_with_assigned_device_and_iface(ctx, vrf)
+        if ipaddr_dev_ifaces:
+            dhcp_config['ipaddr_dev_ifaces'] = ipaddr_dev_ifaces
+
         # Add config
         dhcp_configs.append(dhcp_config)
 
@@ -439,6 +495,9 @@ def mikrotik_configure(ctx: dict, dhcp_configs: dict) -> None:
 
         # dhcp server network
         mikrotik_add_update_dhcp_server_network(ctx, dhcp_config)
+
+        # IP addresses with device and iface to IP leases
+        mikrotik_add_update_dhcp_leases(ctx, dhcp_config)
 
 
 def mikrotik_add_update_pool(ctx: dict, dhcp_config: dict) -> bool:
@@ -525,3 +584,79 @@ def mikrotik_add_update_dhcp_server_network(ctx: dict, dhcp_config: dict) -> boo
             mikrotik_patch(ctx, f"/ip/dhcp-server/network/{dhcp_server_network_id}", **params)
 
 
+def mikrotik_add_update_dhcp_leases(ctx: dict, dhcp_config: dict) -> bool:
+    ipaddr_dev_ifaces = dhcp_config['ipaddr_dev_ifaces']
+    if not ipaddr_dev_ifaces:
+        return False
+
+
+    for idi in ipaddr_dev_ifaces:
+        idi['dhcp_server'] = f"dhcp-{dhcp_config['targer_router_interface']['name']}"
+        dhcp_server_network_lease = []
+
+        dhcp_server_network_lease.append(f"/ip dhcp-server lease add")
+        dhcp_server_network_lease.append(f"address={idi['address']}")
+        dhcp_server_network_lease.append(f"mac-address={idi['mac_address']}")
+        dhcp_server_network_lease.append(f"server={idi['dhcp_server']}")
+        dhcp_server_network_lease.append(f"comment=\"{idi['comment']}\"")
+
+        print(f"{" ".join(dhcp_server_network_lease)}")
+
+        params = {
+            "address":     str(idi['address']),
+            "mac-address": str(idi['mac_address']),
+            "server":      str(idi['dhcp_server']),
+            "comment":     str(idi['comment'])
+        }
+
+        # check if the addresss exists as a lease
+        dhcp_lease_id = mikrotik_key_val_exists(ctx, "/ip/dhcp-server/lease",
+                                                     "mac-address", str(idi['mac_address']))
+        try:
+            if not dhcp_lease_id:
+                mikrotik_put(ctx, "/ip/dhcp-server/lease", **params)
+            else:
+                mikrotik_patch(ctx, f"/ip/dhcp-server/lease/{dhcp_lease_id}", **params)
+
+        except Exception as exc:
+            print("error", params)
+            print(f"Fout: {type(exc).__name__}: {exc}")
+
+            req = exc.request
+            if req is not None:
+                print("\n--- REQUEST ---")
+                print(f"{req.method} {req.url}")
+
+                for name, value in req.headers.items():
+                    # Voorkom dat credentials in je logs belanden.
+                    if name.lower() in {"authorization", "proxy-authorization", "cookie"}:
+                        value = "<verborgen>"
+                    print(f"{name}: {value}")
+
+                body = req.body
+                if isinstance(body, bytes):
+                    body = body.decode("utf-8", errors="replace")
+
+                print("\nBody:")
+                print(body if body is not None else "<leeg>")
+
+            resp = exc.response
+            if resp is not None:
+                print("\n--- RESPONSE ---")
+                print(f"HTTP {resp.status_code} {resp.reason}")
+                print(dict(resp.headers))
+                print("\nBody:")
+                print(resp.text)
+            else:
+                print("\nGeen HTTP-response ontvangen (bijvoorbeeld timeout of verbindingsfout).")
+
+            sys.exit(1)
+            pass
+
+
+
+"""
+/ip dhcp-server lease
+add address=192.168.205.57 comment=silver7 mac-address=50:A6:D8:DB:24:B9 server=dhcp_vlan205
+add address=192.168.205.55 comment=silver5 mac-address=50:A6:D8:DF:38:AE server=dhcp_vlan205
+"""
